@@ -14,6 +14,7 @@ if(NOT Qt6_FOUND)
 endif()
 
 target_link_libraries(bendiff PRIVATE Qt6::Widgets)
+target_link_libraries(bendiff PRIVATE bendiff_common)
 
 # Warnings (keep reasonable; this is a UI app and will be built on multiple compilers).
 if(MSVC)
