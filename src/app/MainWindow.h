@@ -27,6 +27,10 @@ private:
     void setup_toolbar();
     void setup_central();
 
+    void enter_repo_mode(const std::filesystem::path& repoPath);
+    void enter_folder_diff_mode(const std::filesystem::path& leftPath, const std::filesystem::path& rightPath);
+    void reset_placeholders();
+
     void set_pane_mode(PaneMode mode);
     void update_status_bar();
 
@@ -46,6 +50,8 @@ private:
 
     QSplitter* m_rootSplitter = nullptr;
     QSplitter* m_diffSplitter = nullptr;
+
+    QLabel* m_fileListLabel = nullptr;
 
     QWidget* m_diffPaneA = nullptr;
     QWidget* m_diffPaneB = nullptr;

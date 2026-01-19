@@ -7,6 +7,7 @@
 #include <QComboBox>
 #include <QFrame>
 #include <QLabel>
+#include <QFileDialog>
 #include <QMenu>
 #include <QMenuBar>
 #include <QSplitter>
@@ -79,8 +80,39 @@ void MainWindow::setup_menus()
     fileMenu->addAction(m_actionOpenRepo);
     fileMenu->addAction(m_actionOpenFolders);
 
-    connect(m_actionOpenRepo, &QAction::triggered, this, [] { log_not_implemented("Open Repo"); });
-    connect(m_actionOpenFolders, &QAction::triggered, this, [] { log_not_implemented("Open Folders"); });
+    connect(m_actionOpenRepo, &QAction::triggered, this, [this] {
+        const QString selected = QFileDialog::getExistingDirectory(
+            this,
+            "Open Repo",
+            QString::fromStdString(m_invocation.repoPath.empty() ? std::string() : m_invocation.repoPath.string()),
+            QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+        if (selected.isEmpty()) {
+            return;
+        }
+        enter_repo_mode(std::filesystem::path(selected.toStdString()));
+    });
+
+    connect(m_actionOpenFolders, &QAction::triggered, this, [this] {
+        const QString left = QFileDialog::getExistingDirectory(
+            this,
+            "Open Left Folder",
+            QString::fromStdString(m_invocation.leftPath.empty() ? std::string() : m_invocation.leftPath.string()),
+            QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+        if (left.isEmpty()) {
+            return;
+        }
+
+        const QString right = QFileDialog::getExistingDirectory(
+            this,
+            "Open Right Folder",
+            QString::fromStdString(m_invocation.rightPath.empty() ? std::string() : m_invocation.rightPath.string()),
+            QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+        if (right.isEmpty()) {
+            return;
+        }
+
+        enter_folder_diff_mode(std::filesystem::path(left.toStdString()), std::filesystem::path(right.toStdString()));
+    });
 }
 
 void MainWindow::setup_toolbar()
@@ -88,8 +120,9 @@ void MainWindow::setup_toolbar()
     auto* toolbar = addToolBar("Main");
     toolbar->setMovable(false);
 
-    m_actionOpenRepo = m_actionOpenRepo ? m_actionOpenRepo : new QAction("Open Repo", this);
-    m_actionOpenFolders = m_actionOpenFolders ? m_actionOpenFolders : new QAction("Open Folders", this);
+    // Re-use the File menu actions so they stay consistent.
+    m_actionOpenRepo = m_actionOpenRepo ? m_actionOpenRepo : new QAction("Open Repo...", this);
+    m_actionOpenFolders = m_actionOpenFolders ? m_actionOpenFolders : new QAction("Open Folders...", this);
     m_actionRefresh = new QAction("Refresh", this);
     m_actionNextChange = new QAction("Next Change", this);
     m_actionPrevChange = new QAction("Previous Change", this);
@@ -148,7 +181,7 @@ void MainWindow::setup_central()
     // - Right side: diff placeholder container (one or two panes will be implemented in M1-T2)
     m_rootSplitter = new QSplitter(Qt::Horizontal, this);
 
-    auto* fileList = make_placeholder_panel("File list (placeholder)", nullptr, m_rootSplitter);
+    auto* fileList = make_placeholder_panel("File list (placeholder)", &m_fileListLabel, m_rootSplitter);
     m_rootSplitter->addWidget(fileList);
 
     m_diffSplitter = new QSplitter(Qt::Horizontal, m_rootSplitter);
@@ -173,12 +206,59 @@ void MainWindow::setup_central()
     setCentralWidget(m_rootSplitter);
 }
 
-void MainWindow::set_pane_mode(PaneMode mode)
+void MainWindow::enter_repo_mode(const std::filesystem::path& repoPath)
 {
-    if (m_paneMode == mode) {
-        return;
+    m_invocation.mode = bendiff::AppMode::RepoMode;
+    m_invocation.repoPath = repoPath;
+    m_invocation.leftPath.clear();
+    m_invocation.rightPath.clear();
+    m_invocation.error.clear();
+
+    bendiff::logging::info(std::string("UI mode set: RepoMode repoPath=\"") + repoPath.string() + "\"");
+    reset_placeholders();
+    update_status_bar();
+}
+
+void MainWindow::enter_folder_diff_mode(const std::filesystem::path& leftPath, const std::filesystem::path& rightPath)
+{
+    m_invocation.mode = bendiff::AppMode::FolderDiffMode;
+    m_invocation.leftPath = leftPath;
+    m_invocation.rightPath = rightPath;
+    m_invocation.repoPath.clear();
+    m_invocation.error.clear();
+
+    bendiff::logging::info(std::string("UI mode set: FolderDiffMode leftPath=\"") + leftPath.string() +
+                           "\" rightPath=\"" + rightPath.string() + "\"");
+    reset_placeholders();
+    update_status_bar();
+}
+
+void MainWindow::reset_placeholders()
+{
+    // No real logic yet; just keep the UI consistent and visibly reset.
+    if (m_fileListLabel) {
+        if (m_invocation.mode == bendiff::AppMode::RepoMode) {
+            m_fileListLabel->setText("File list (repo placeholder)");
+        } else if (m_invocation.mode == bendiff::AppMode::FolderDiffMode) {
+            m_fileListLabel->setText("File list (folder diff placeholder)");
+        } else {
+            m_fileListLabel->setText("File list (placeholder)");
+        }
     }
 
+    if (m_diffLabelA && m_diffLabelB) {
+        if (m_paneMode == PaneMode::Inline) {
+            m_diffLabelA->setText("Diff view (inline placeholder)");
+            m_diffLabelB->setText("Diff view (placeholder)");
+        } else {
+            m_diffLabelA->setText("Diff view (left placeholder)");
+            m_diffLabelB->setText("Diff view (right placeholder)");
+        }
+    }
+}
+
+void MainWindow::set_pane_mode(PaneMode mode)
+{
     m_paneMode = mode;
 
     if (m_actionInlineMode && m_actionSideBySideMode) {
@@ -214,13 +294,28 @@ void MainWindow::set_pane_mode(PaneMode mode)
 
 void MainWindow::update_status_bar()
 {
-    const char* modeText = "File";
-    if (m_invocation.mode == bendiff::AppMode::FolderDiffMode) {
-        modeText = "Folder";
-    }
-
     const char* paneText = (m_paneMode == PaneMode::Inline) ? "Inline" : "Side-by-side";
 
+    QString modeText = "File";
+    QString paths;
+    if (m_invocation.mode == bendiff::AppMode::RepoMode) {
+        modeText = "File";
+        if (!m_invocation.repoPath.empty()) {
+            paths = QString("Repo: %1").arg(QString::fromStdString(m_invocation.repoPath.string()));
+        }
+    } else if (m_invocation.mode == bendiff::AppMode::FolderDiffMode) {
+        modeText = "Folder";
+        if (!m_invocation.leftPath.empty() || !m_invocation.rightPath.empty()) {
+            paths = QString("Left: %1 | Right: %2")
+                        .arg(QString::fromStdString(m_invocation.leftPath.string()))
+                        .arg(QString::fromStdString(m_invocation.rightPath.string()));
+        }
+    }
+
     QString message = QString("Mode: %1 | View: %2").arg(modeText).arg(paneText);
+    if (!paths.isEmpty()) {
+        message += " | ";
+        message += paths;
+    }
     statusBar()->showMessage(message);
 }

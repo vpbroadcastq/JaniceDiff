@@ -37,7 +37,8 @@ Implement Milesone 1 Task M1-T1:  Replace the empty Milestone 0 window with the 
 ## M1-T2: Central pane layout and mode switching (2-pane vs 3-pane)
 Implement Milesone 1 Task M1-T2:  Implement the pane topology rules from the spec.  Review the full spec in spec_v1_frozen.md for context and aditional detail.  Note that tasks 1, 3, and 4 have been completed (we are not doing the Milestone 1 tasks in order).
 
-
+## M1-T5: Repo / folder selection via UI (File menu)
+Implement Milesone 1 Task M1-T5:  Enable manual mode entry via the UI, even before logic exists.  Review the full spec in spec_v1_frozen.md for context and aditional detail.
 
 
 
