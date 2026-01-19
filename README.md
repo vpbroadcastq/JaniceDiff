@@ -60,3 +60,16 @@ On startup the app logs a line like `BenDiff starting...`.
 - Windows: `%LOCALAPPDATA%\BenDiff\logs\bendiff.log`
 
 Files rotate at ~1 MiB and keep `bendiff.log`, `bendiff.log.1`, `bendiff.log.2`, `bendiff.log.3`.
+
+## Tests
+After building:
+
+```bash
+ctest --test-dir build
+```
+
+On Windows multi-config generators you may need:
+
+```bat
+ctest --test-dir build -C Debug
+```

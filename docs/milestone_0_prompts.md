@@ -18,7 +18,8 @@ Implement Milestone 0 Task M0-T4: Add logging that will be useful during AI iter
 ## M0-T5: Cross-platform “developer build” documentation
 Implement Milestone 0 Task M0-T5: Ensure rebuild from scratch is documented.
 
-
+## M0-T6: Unit test harness skeleton (even if there are no real tests yet)
+Implement Milestone 0 Task M0-T6: Establish the "tests exist from day 1" discipline stated in the spec `spec_v1_frozen.md`
 
 
 
