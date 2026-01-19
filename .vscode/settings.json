@@ -1,0 +1,13 @@
+{
+  // Use the build directory compilation database for IntelliSense.
+  // Works with the Microsoft C/C++ extension.
+  "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json",
+
+  // If you use the clangd extension, point it at the same compilation database.
+  "clangd.arguments": ["--compile-commands-dir=${workspaceFolder}/build"],
+
+  // If you use CMake Tools in VS Code, keep export enabled during configure.
+  "cmake.configureSettings": {
+    "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+  }
+}

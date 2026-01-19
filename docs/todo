@@ -1,0 +1,6 @@
+# ToDo's
+
+## Build
+- FetchContent is terrifying.  The GoogleTest build logic is using FetchContent
+
+

@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.24)
 
 project(BenDiff LANGUAGES CXX)
 
+# Help IDEs (clangd / VS Code IntelliSense) by exporting a compilation database.
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "Export compile_commands.json" FORCE)
+
 option(BENDIFF_BUILD_TESTS "Build unit tests" ON)
 
 include(CTest)
