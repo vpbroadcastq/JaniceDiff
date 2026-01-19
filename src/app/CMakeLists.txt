@@ -1,5 +1,7 @@
 add_executable(bendiff
     main.cpp
+    MainWindow.cpp
+    MainWindow.h
 )
 
 # Prefer a clear, actionable error over CMake's default find_package output.

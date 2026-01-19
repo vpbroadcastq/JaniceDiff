@@ -8,11 +8,12 @@ You are implementing Milestone 0 Task M0-T1 for the BenDiff project, described i
 ## M0-T2: Create CMake build that compiles a Qt Widgets executable
 Implement Milestone 0 Task M0-T2: create a CMake build that compiles a Qt6 Widgets executable named bendiff on Windows and Linux.
 
+## M0-T3: Minimal Qt Widgets application that launches cleanly
+Implement Milestone 0 Task M0-T3: create a Minimal Qt Widgets application that launches cleanly
 
 
-
-
-
+## M0-T4: Logging infrastructure (minimal but durable)
+Implement Milestone 0 Task M0-T4: Add logging that will be useful during AI iteration and later debugging.
 
 
 
