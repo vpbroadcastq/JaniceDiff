@@ -15,7 +15,8 @@ Implement Milestone 0 Task M0-T3: create a Minimal Qt Widgets application that l
 ## M0-T4: Logging infrastructure (minimal but durable)
 Implement Milestone 0 Task M0-T4: Add logging that will be useful during AI iteration and later debugging.
 
-
+## M0-T5: Cross-platform “developer build” documentation
+Implement Milestone 0 Task M0-T5: Ensure rebuild from scratch is documented.
 
 
 
