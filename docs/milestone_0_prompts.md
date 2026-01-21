@@ -32,7 +32,7 @@ Implement Milestone 1 Task M1-T3:  Implement argument parsing and mode detection
 Implement Milestone 1 Task M1-T4:  Enforce the spec’s error-handling contract.  Review the full spec in spec_v1_frozen.md for context and aditional detail.  Note that tasks 1 and 2 have not been completed yet (we are not doing the Milestone 1 tasks in order).
 
 ## M1-T1: Main window UI shell (menus, toolbar, central container)
-Implement Milesone 1 Task M1-T1:  Replace the empty Milestone 0 window with the structural UI defined in the spec.
+Implement Milesone 1 Task M1-T1:  Replace the empty Milestone 0 window with the structural UI defined in the spec.  Review the full spec in spec_v1_frozen.md for context and aditional detail.  Note that tasks 3 and 4 have been completed, but not task 2 (we are not doing the Milestone 1 tasks in order).
 
 
 
