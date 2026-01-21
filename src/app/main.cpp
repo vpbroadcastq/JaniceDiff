@@ -55,7 +55,7 @@ int main(int argc, char** argv)
         return startupError->exitCode;
     }
 
-    MainWindow window;
+    MainWindow window(invocation);
     window.show();
 
     return app.exec();

@@ -2,21 +2,36 @@
 
 #include <QMainWindow>
 
+#include <invocation.h>
+
 class QAction;
 class QComboBox;
+class QLabel;
 class QSplitter;
+class QWidget;
 
 class MainWindow final : public QMainWindow
 {
     Q_OBJECT
 
 public:
-    explicit MainWindow(QWidget* parent = nullptr);
+    explicit MainWindow(const bendiff::Invocation& invocation, QWidget* parent = nullptr);
 
 private:
+    enum class PaneMode {
+        Inline,
+        SideBySide,
+    };
+
     void setup_menus();
     void setup_toolbar();
     void setup_central();
+
+    void set_pane_mode(PaneMode mode);
+    void update_status_bar();
+
+    bendiff::Invocation m_invocation;
+    PaneMode m_paneMode = PaneMode::Inline;
 
     QAction* m_actionOpenRepo = nullptr;
     QAction* m_actionOpenFolders = nullptr;
@@ -31,4 +46,9 @@ private:
 
     QSplitter* m_rootSplitter = nullptr;
     QSplitter* m_diffSplitter = nullptr;
+
+    QWidget* m_diffPaneA = nullptr;
+    QWidget* m_diffPaneB = nullptr;
+    QLabel* m_diffLabelA = nullptr;
+    QLabel* m_diffLabelB = nullptr;
 };

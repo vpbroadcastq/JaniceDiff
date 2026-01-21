@@ -17,7 +17,7 @@
 
 namespace {
 
-QWidget* make_placeholder_panel(const QString& title, QWidget* parent)
+QWidget* make_placeholder_panel(const QString& title, QLabel** outLabel, QWidget* parent)
 {
     auto* frame = new QFrame(parent);
     frame->setFrameShape(QFrame::StyledPanel);
@@ -30,6 +30,9 @@ QWidget* make_placeholder_panel(const QString& title, QWidget* parent)
     auto* label = new QLabel(title, frame);
     label->setAlignment(Qt::AlignCenter);
     label->setWordWrap(true);
+    if (outLabel) {
+        *outLabel = label;
+    }
 
     layout->addStretch(1);
     layout->addWidget(label);
@@ -45,8 +48,9 @@ void log_not_implemented(const char* what)
 
 } // namespace
 
-MainWindow::MainWindow(QWidget* parent)
+MainWindow::MainWindow(const bendiff::Invocation& invocation, QWidget* parent)
     : QMainWindow(parent)
+    , m_invocation(invocation)
 {
     setWindowTitle("BenDiff");
 
@@ -54,7 +58,8 @@ MainWindow::MainWindow(QWidget* parent)
     setup_toolbar();
     setup_central();
 
-    statusBar()->showMessage("Ready");
+    set_pane_mode(PaneMode::Inline);
+    update_status_bar();
 }
 
 void MainWindow::setup_menus()
@@ -128,8 +133,12 @@ void MainWindow::setup_toolbar()
         bendiff::logging::info(std::string("Whitespace mode set to: ") + text.toStdString());
     });
 
-    connect(m_actionInlineMode, &QAction::triggered, this, [] { log_not_implemented("Switch to inline diff (2-pane)"); });
-    connect(m_actionSideBySideMode, &QAction::triggered, this, [] { log_not_implemented("Switch to side-by-side diff (3-pane)"); });
+    connect(m_actionInlineMode, &QAction::triggered, this, [this] {
+        set_pane_mode(PaneMode::Inline);
+    });
+    connect(m_actionSideBySideMode, &QAction::triggered, this, [this] {
+        set_pane_mode(PaneMode::SideBySide);
+    });
 }
 
 void MainWindow::setup_central()
@@ -139,18 +148,20 @@ void MainWindow::setup_central()
     // - Right side: diff placeholder container (one or two panes will be implemented in M1-T2)
     m_rootSplitter = new QSplitter(Qt::Horizontal, this);
 
-    auto* fileList = make_placeholder_panel("File list (placeholder)", m_rootSplitter);
+    auto* fileList = make_placeholder_panel("File list (placeholder)", nullptr, m_rootSplitter);
     m_rootSplitter->addWidget(fileList);
 
     m_diffSplitter = new QSplitter(Qt::Horizontal, m_rootSplitter);
-    auto* diffA = make_placeholder_panel("Diff view (placeholder)", m_diffSplitter);
-    auto* diffB = make_placeholder_panel("Diff view (placeholder)", m_diffSplitter);
-    m_diffSplitter->addWidget(diffA);
-    m_diffSplitter->addWidget(diffB);
+    m_diffPaneA = make_placeholder_panel("Diff view (placeholder)", &m_diffLabelA, m_diffSplitter);
+    m_diffPaneB = make_placeholder_panel("Diff view (placeholder)", &m_diffLabelB, m_diffSplitter);
+    m_diffSplitter->addWidget(m_diffPaneA);
+    m_diffSplitter->addWidget(m_diffPaneB);
 
-    // Default to an "inline" feel: keep the second diff pane hidden for now.
-    // Mode switching behavior is implemented in M1-T2.
-    diffB->setVisible(false);
+    // Default to inline mode (2-pane topology): left file list + one diff pane.
+    // Side-by-side (3-pane) is implemented via showing the second diff pane.
+    if (m_diffPaneB) {
+        m_diffPaneB->setVisible(false);
+    }
     m_diffSplitter->setStretchFactor(0, 1);
     m_diffSplitter->setStretchFactor(1, 1);
 
@@ -160,4 +171,56 @@ void MainWindow::setup_central()
     m_rootSplitter->setSizes({240, 760});
 
     setCentralWidget(m_rootSplitter);
+}
+
+void MainWindow::set_pane_mode(PaneMode mode)
+{
+    if (m_paneMode == mode) {
+        return;
+    }
+
+    m_paneMode = mode;
+
+    if (m_actionInlineMode && m_actionSideBySideMode) {
+        if (mode == PaneMode::Inline) {
+            m_actionInlineMode->setChecked(true);
+        } else {
+            m_actionSideBySideMode->setChecked(true);
+        }
+    }
+
+    const bool showSecondPane = (mode == PaneMode::SideBySide);
+    if (m_diffPaneB) {
+        m_diffPaneB->setVisible(showSecondPane);
+    }
+
+    if (m_diffLabelA && m_diffLabelB) {
+        if (mode == PaneMode::Inline) {
+            m_diffLabelA->setText("Diff view (inline placeholder)");
+            m_diffLabelB->setText("Diff view (placeholder)");
+        } else {
+            m_diffLabelA->setText("Diff view (left placeholder)");
+            m_diffLabelB->setText("Diff view (right placeholder)");
+        }
+    }
+
+    if (m_rootSplitter) {
+        // Keep the file list pane visible; just adjust the distribution a bit.
+        m_rootSplitter->setSizes({240, 760});
+    }
+
+    update_status_bar();
+}
+
+void MainWindow::update_status_bar()
+{
+    const char* modeText = "File";
+    if (m_invocation.mode == bendiff::AppMode::FolderDiffMode) {
+        modeText = "Folder";
+    }
+
+    const char* paneText = (m_paneMode == PaneMode::Inline) ? "Inline" : "Side-by-side";
+
+    QString message = QString("Mode: %1 | View: %2").arg(modeText).arg(paneText);
+    statusBar()->showMessage(message);
 }
