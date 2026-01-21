@@ -40,7 +40,8 @@ Implement Milesone 1 Task M1-T2:  Implement the pane topology rules from the spe
 ## M1-T5: Repo / folder selection via UI (File menu)
 Implement Milesone 1 Task M1-T5:  Enable manual mode entry via the UI, even before logic exists.  Review the full spec in spec_v1_frozen.md for context and aditional detail.
 
-
+## M1-T6: Placeholder file list pane and selection wiring
+Implement Milesone 1 Task M1-T6:  Lay groundwork for Milestone 2 without implementing Git logic.  Review the full spec in spec_v1_frozen.md for context and aditional detail.
 
 
 

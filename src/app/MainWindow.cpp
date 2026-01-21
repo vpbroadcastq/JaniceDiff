@@ -8,6 +8,7 @@
 #include <QFrame>
 #include <QLabel>
 #include <QFileDialog>
+#include <QListWidget>
 #include <QMenu>
 #include <QMenuBar>
 #include <QSplitter>
@@ -60,6 +61,7 @@ MainWindow::MainWindow(const bendiff::Invocation& invocation, QWidget* parent)
     setup_central();
 
     set_pane_mode(PaneMode::Inline);
+    reset_placeholders();
     update_status_bar();
 }
 
@@ -181,8 +183,27 @@ void MainWindow::setup_central()
     // - Right side: diff placeholder container (one or two panes will be implemented in M1-T2)
     m_rootSplitter = new QSplitter(Qt::Horizontal, this);
 
-    auto* fileList = make_placeholder_panel("File list (placeholder)", &m_fileListLabel, m_rootSplitter);
-    m_rootSplitter->addWidget(fileList);
+    // Left pane: placeholder file list (real widget, selectable)
+    {
+        auto* leftFrame = new QFrame(m_rootSplitter);
+        leftFrame->setFrameShape(QFrame::StyledPanel);
+        leftFrame->setFrameShadow(QFrame::Sunken);
+
+        auto* leftLayout = new QVBoxLayout(leftFrame);
+        leftLayout->setContentsMargins(8, 8, 8, 8);
+        leftLayout->setSpacing(8);
+
+        auto* header = new QLabel("Files", leftFrame);
+        header->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+
+        m_fileListWidget = new QListWidget(leftFrame);
+        m_fileListWidget->setSelectionMode(QAbstractItemView::SingleSelection);
+
+        leftLayout->addWidget(header);
+        leftLayout->addWidget(m_fileListWidget, 1);
+
+        m_rootSplitter->addWidget(leftFrame);
+    }
 
     m_diffSplitter = new QSplitter(Qt::Horizontal, m_rootSplitter);
     m_diffPaneA = make_placeholder_panel("Diff view (placeholder)", &m_diffLabelA, m_diffSplitter);
@@ -204,6 +225,29 @@ void MainWindow::setup_central()
     m_rootSplitter->setSizes({240, 760});
 
     setCentralWidget(m_rootSplitter);
+
+    // Selection wiring (M1-T6): selecting a file updates diff placeholder labels.
+    if (m_fileListWidget) {
+        connect(m_fileListWidget, &QListWidget::currentTextChanged, this, [this](const QString& text) {
+            if (text.isEmpty()) {
+                reset_placeholders();
+                return;
+            }
+
+            const std::string selected = text.toStdString();
+            bendiff::logging::info(std::string("Selected file list entry: ") + selected);
+
+            if (m_diffLabelA && m_diffLabelB) {
+                if (m_paneMode == PaneMode::Inline) {
+                    m_diffLabelA->setText(QString("Diff view (inline placeholder)\n\nSelected: %1").arg(text));
+                    m_diffLabelB->setText("Diff view (placeholder)");
+                } else {
+                    m_diffLabelA->setText(QString("Diff view (left placeholder)\n\nSelected: %1").arg(text));
+                    m_diffLabelB->setText(QString("Diff view (right placeholder)\n\nSelected: %1").arg(text));
+                }
+            }
+        });
+    }
 }
 
 void MainWindow::enter_repo_mode(const std::filesystem::path& repoPath)
@@ -236,14 +280,27 @@ void MainWindow::enter_folder_diff_mode(const std::filesystem::path& leftPath, c
 void MainWindow::reset_placeholders()
 {
     // No real logic yet; just keep the UI consistent and visibly reset.
-    if (m_fileListLabel) {
+
+    if (m_fileListWidget) {
+        m_fileListWidget->blockSignals(true);
+        m_fileListWidget->clear();
+
         if (m_invocation.mode == bendiff::AppMode::RepoMode) {
-            m_fileListLabel->setText("File list (repo placeholder)");
+            // Spec allows dummy data; keep the required placeholder text present.
+            m_fileListWidget->addItem("(repo files will appear here)");
+            m_fileListWidget->addItem("src/app/MainWindow.cpp");
+            m_fileListWidget->addItem("README.md");
         } else if (m_invocation.mode == bendiff::AppMode::FolderDiffMode) {
-            m_fileListLabel->setText("File list (folder diff placeholder)");
+            m_fileListWidget->addItem("(folder diff files will appear here)");
+            m_fileListWidget->addItem("only-in-left.txt");
+            m_fileListWidget->addItem("only-in-right.txt");
+            m_fileListWidget->addItem("changed-in-both.txt");
         } else {
-            m_fileListLabel->setText("File list (placeholder)");
+            m_fileListWidget->addItem("(no mode selected)");
         }
+
+        m_fileListWidget->setCurrentRow(-1);
+        m_fileListWidget->blockSignals(false);
     }
 
     if (m_diffLabelA && m_diffLabelB) {
@@ -287,6 +344,11 @@ void MainWindow::set_pane_mode(PaneMode mode)
     if (m_rootSplitter) {
         // Keep the file list pane visible; just adjust the distribution a bit.
         m_rootSplitter->setSizes({240, 760});
+    }
+
+    // If nothing is selected, ensure placeholders reflect the new topology.
+    if (!m_fileListWidget || m_fileListWidget->currentRow() < 0) {
+        reset_placeholders();
     }
 
     update_status_bar();

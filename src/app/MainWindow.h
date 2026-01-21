@@ -7,6 +7,7 @@
 class QAction;
 class QComboBox;
 class QLabel;
+class QListWidget;
 class QSplitter;
 class QWidget;
 
@@ -51,7 +52,7 @@ private:
     QSplitter* m_rootSplitter = nullptr;
     QSplitter* m_diffSplitter = nullptr;
 
-    QLabel* m_fileListLabel = nullptr;
+    QListWidget* m_fileListWidget = nullptr;
 
     QWidget* m_diffPaneA = nullptr;
     QWidget* m_diffPaneB = nullptr;
