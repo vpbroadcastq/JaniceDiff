@@ -19,6 +19,7 @@ FetchContent_MakeAvailable(googletest)
 
 add_executable(bendiff_tests
   test_smoke.cpp
+  test_invocation.cpp
 )
 
 set_target_properties(bendiff_tests PROPERTIES
@@ -35,7 +36,7 @@ else()
   target_compile_options(bendiff_tests PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
-target_link_libraries(bendiff_tests PRIVATE GTest::gtest_main)
+target_link_libraries(bendiff_tests PRIVATE GTest::gtest_main bendiff_common)
 
 include(GoogleTest)
 
