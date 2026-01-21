@@ -28,6 +28,9 @@ Implement Milestone 0 Task M0-T6: Establish the "tests exist from day 1" discipl
 ## M1-T3: Command-line parsing and invocation classification
 Implement Milestone 1 Task M1-T3:  Implement argument parsing and mode detection as specified in milestone_1.md.  Review the full spec in spec_v1_frozen.md for context and aditional detail.  Note that tasks 1 and 2 have not been completed yet (we are not doing the Milestone 1 tasks in order).
 
+## M1-T4: Error handling and exit-code policy
+Implement Milestone 1 Task M1-T4:  Enforce the spec’s error-handling contract.  Review the full spec in spec_v1_frozen.md for context and aditional detail.  Note that tasks 1 and 2 have not been completed yet (we are not doing the Milestone 1 tasks in order).
+
 ## M1-T1: Main window UI shell (menus, toolbar, central container)
 Implement Milesone 1 Task M1-T1:  Replace the empty Milestone 0 window with the structural UI defined in the spec.
 

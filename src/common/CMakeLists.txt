@@ -3,6 +3,8 @@ add_library(bendiff_common STATIC
     logging.h
     invocation.cpp
     invocation.h
+    startup_policy.cpp
+    startup_policy.h
 )
 
 # src/common is intentionally Qt-free.

@@ -1,4 +1,5 @@
 #include <invocation.h>
+#include <startup_policy.h>
 
 #include <gtest/gtest.h>
 
@@ -55,4 +56,25 @@ TEST(InvocationParsing, ThreeArgsIsInvalid)
 {
     const auto inv = bendiff::parse_invocation({"a", "b", "c"});
     EXPECT_EQ(inv.mode, bendiff::AppMode::Invalid);
+}
+
+TEST(StartupPolicy, InvalidInvocationReturnsExitCode2)
+{
+    bendiff::Invocation inv;
+    inv.mode = bendiff::AppMode::Invalid;
+    inv.error = "bad args";
+
+    const auto err = bendiff::startup_error_for(inv, false);
+    ASSERT_TRUE(err.has_value());
+    EXPECT_EQ(err->exitCode, 2);
+}
+
+TEST(StartupPolicy, ForcedRuntimeErrorReturnsExitCode3)
+{
+    bendiff::Invocation inv;
+    inv.mode = bendiff::AppMode::RepoMode;
+
+    const auto err = bendiff::startup_error_for(inv, true);
+    ASSERT_TRUE(err.has_value());
+    EXPECT_EQ(err->exitCode, 3);
 }
