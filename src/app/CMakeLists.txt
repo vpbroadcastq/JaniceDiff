@@ -15,6 +15,7 @@ endif()
 
 target_link_libraries(bendiff PRIVATE Qt6::Widgets)
 target_link_libraries(bendiff PRIVATE bendiff_common)
+target_link_libraries(bendiff PRIVATE bendiff_core)
 
 # Warnings (keep reasonable; this is a UI app and will be built on multiple compilers).
 if(MSVC)

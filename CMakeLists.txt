@@ -21,6 +21,7 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
 add_subdirectory(src/common)
+add_subdirectory(src/core)
 add_subdirectory(src/app)
 
 if(BENDIFF_BUILD_TESTS)

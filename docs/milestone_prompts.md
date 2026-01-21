@@ -47,4 +47,8 @@ Implement Milesone 1 Task M1-T6:  Lay groundwork for Milestone 2 without impleme
 
 
 
+## M2-T1: Define core data model for “changed file” entries (Qt-free)
+Implement Milesone 2 Task M2-T1:  Create a minimal, stable representation of repo file changes to drive UI and tests.  Review the full spec in spec_v1_frozen.md for context and aditional detail.  
+
+
 
