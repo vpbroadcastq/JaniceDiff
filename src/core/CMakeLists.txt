@@ -3,6 +3,8 @@ add_library(bendiff_core STATIC
   model.h
   repo_discovery.cpp
   repo_discovery.h
+  process.cpp
+  process.h
 )
 
 # src/core is intentionally Qt-free.

@@ -53,7 +53,8 @@ Implement Milestone 2 Task M2-T1:  Create a minimal, stable representation of re
 ## M2-T2: Repo discovery and validation (CWD + explicit path)
 Implement Milestone 2 Task M2-T2:  Implement "find a git repo" semantics for `bendiff` and `bendiff <PathToGitRepo>`.  Review the full spec in spec_v1_frozen.md for context and aditional detail.  
 
-
+## M2-T3: Git executable discovery and process runner (Qt-free utility)
+Implement Milestone 2 Task M2-T3:  Create a robust way to invoke git and capture `stdout`/`stderr` for parsing and diagnostics.  Review the full spec in spec_v1_frozen.md for context and aditional detail.  
 
 
 

@@ -34,7 +34,7 @@
 2) Running inside a repo identifies the repo root.
 
 ## M2-T3: Git executable discovery and process runner (Qt-free utility)
-**Objective:** Create a robust way to invoke git and capture stdout/stderr for parsing and diagnostics.
+**Objective:** Create a robust way to invoke git and capture `stdout`/`stderr` for parsing and diagnostics.
 ### Deliverables
 1) A small process runner in `src/core/` or `src/common/` (Qt-free preferred):
 2) `struct ProcessResult { int exitCode; std::string stdoutText; std::string stderrText; };`
