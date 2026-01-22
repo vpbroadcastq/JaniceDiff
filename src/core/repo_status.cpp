@@ -28,15 +28,26 @@ RepoStatus GetRepoStatus(fs::path repoRoot)
         repoRoot = abs;
     }
 
-    const auto r = RunGitStatusPorcelainV1Z(repoRoot);
+    return GetRepoStatusWithDiagnostics(repoRoot).status;
+}
 
-    RepoStatus status;
-    status.repoRoot = repoRoot;
-
-    if (r.exitCode == 0) {
-        status.files = ParsePorcelainV1(r.stdoutText, /*nulSeparated=*/true);
+RepoStatusResult GetRepoStatusWithDiagnostics(fs::path repoRoot)
+{
+    std::error_code ec;
+    const fs::path abs = fs::absolute(repoRoot, ec);
+    if (!ec && !abs.empty()) {
+        repoRoot = abs;
     }
-    return status;
+
+    RepoStatusResult out;
+    out.status.repoRoot = repoRoot;
+    out.process = RunGitStatusPorcelainV1Z(repoRoot);
+
+    if (out.process.exitCode == 0) {
+        out.status.files = ParsePorcelainV1(out.process.stdoutText, /*nulSeparated=*/true);
+    }
+
+    return out;
 }
 
 } // namespace bendiff::core

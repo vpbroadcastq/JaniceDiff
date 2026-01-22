@@ -68,7 +68,8 @@ Implement Milestone 2 Task M2-T6:  Implement the ordering/grouping contract for 
 ## M2-T7: Wire repo mode UI to real data (replace placeholders)
 Implement Milestone 2 Task M2-T7:  Make the repo file list actually show detected changes.  Review the full spec in spec_v1_frozen.md for context and aditional detail.  
 
-
+## M2-T8: Error surfacing for Git failures (modal dialogs)
+Implement Milestone 2 Task M2-T8:  Make runtime failure modes user-visible and non-crashing.  Review the full spec in spec_v1_frozen.md for context and aditional detail.  
 
 
 

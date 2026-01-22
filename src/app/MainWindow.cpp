@@ -15,6 +15,7 @@
 #include <QFileDialog>
 #include <QListWidget>
 #include <QListWidgetItem>
+#include <QMessageBox>
 #include <QMenu>
 #include <QMenuBar>
 #include <QSplitter>
@@ -347,8 +348,32 @@ void MainWindow::refresh_file_list()
             return;
         }
 
-        const auto status = bendiff::core::GetRepoStatus(*m_repoRoot);
-        const auto rows = bendiff::core::BuildGroupedFileListRows(status.files);
+        const auto r = bendiff::core::GetRepoStatusWithDiagnostics(*m_repoRoot);
+        if (r.process.exitCode != 0) {
+            const bool cannotExec = (r.process.exitCode == 127);
+
+            const QString title = cannotExec ? "Git could not be executed" : "Git status failed";
+            QString message;
+            if (cannotExec) {
+                message = "BenDiff could not execute the Git executable.\n\n"
+                          "Make sure `git` is installed and available on PATH.";
+            } else {
+                message = QString("Git returned a non-zero exit code (%1) while reading repository status.")
+                              .arg(r.process.exitCode);
+            }
+
+            if (!r.process.stderrText.empty()) {
+                message += QString("\n\nDetails:\n%1").arg(QString::fromStdString(r.process.stderrText));
+            }
+
+            QMessageBox::critical(this, title, message);
+
+            // Keep list empty on failure.
+            m_fileListWidget->blockSignals(false);
+            return;
+        }
+
+        const auto rows = bendiff::core::BuildGroupedFileListRows(r.status.files);
 
         for (const auto& row : rows) {
             auto* item = new QListWidgetItem(QString::fromStdString(row.displayText));
