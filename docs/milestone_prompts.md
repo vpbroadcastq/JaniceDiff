@@ -59,6 +59,21 @@ Implement Milestone 2 Task M2-T3:  Create a robust way to invoke git and capture
 ## M2-T4: Invoke git status --porcelain=v1 in repo mode
 Implement Milestone 2 Task M2-T4:  Retrieve uncommitted changes in the repo root.  Review the full spec in spec_v1_frozen.md for context and aditional detail.  
 
+## M2-T5: Porcelain v1 parser (including renames/deletes; excluding ignored and submodules)
+Implement Milestone 2 Task M2-T5:  Parse the porcelain output into `RepoStatus.files` obeying inclusion rules.  Review the full spec in spec_v1_frozen.md for context and aditional detail.  
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

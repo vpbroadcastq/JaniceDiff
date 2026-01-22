@@ -1,5 +1,7 @@
 #include "repo_status.h"
 
+#include "porcelain.h"
+
 #include <system_error>
 
 namespace fs = std::filesystem;
@@ -26,12 +28,14 @@ RepoStatus GetRepoStatus(fs::path repoRoot)
         repoRoot = abs;
     }
 
-    (void)RunGitStatusPorcelainV1Z(repoRoot);
+    const auto r = RunGitStatusPorcelainV1Z(repoRoot);
 
     RepoStatus status;
     status.repoRoot = repoRoot;
 
-    // M2-T5 will populate status.files by parsing porcelain output.
+    if (r.exitCode == 0) {
+        status.files = ParsePorcelainV1(r.stdoutText, /*nulSeparated=*/true);
+    }
     return status;
 }
 

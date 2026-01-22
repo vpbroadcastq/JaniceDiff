@@ -1,6 +1,8 @@
 add_library(bendiff_core STATIC
   model.cpp
   model.h
+  porcelain.cpp
+  porcelain.h
   repo_discovery.cpp
   repo_discovery.h
   repo_status.cpp
