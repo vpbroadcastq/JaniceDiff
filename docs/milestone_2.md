@@ -96,7 +96,7 @@ Avoid Qt’s QProcess in core unless you explicitly want Qt dependency in busine
 3) Sort groups alphabetically
     * Sort entries within each group alphabetically by path
     * Decide how grouping appears in a flat list:
-    * Recommended: insert non-selectable "header rows" (directory names) followed by files
+    * Insert non-selectable "header rows" (directory names) followed by files
 ### Constraints
 1) Still no diff view
 ### Acceptance criteria

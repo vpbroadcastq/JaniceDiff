@@ -62,8 +62,8 @@ Implement Milestone 2 Task M2-T4:  Retrieve uncommitted changes in the repo root
 ## M2-T5: Porcelain v1 parser (including renames/deletes; excluding ignored and submodules)
 Implement Milestone 2 Task M2-T5:  Parse the porcelain output into `RepoStatus.files` obeying inclusion rules.  Review the full spec in spec_v1_frozen.md for context and aditional detail.  
 
-
-
+## M2-T6: Sorting and grouping for the file list pane (flat list with directory groups)
+Implement Milestone 2 Task M2-T6:  Implement the ordering/grouping contract for the left pane.  Review the full spec in spec_v1_frozen.md for context and aditional detail.  
 
 
 
