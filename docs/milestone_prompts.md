@@ -56,8 +56,8 @@ Implement Milestone 2 Task M2-T2:  Implement "find a git repo" semantics for `be
 ## M2-T3: Git executable discovery and process runner (Qt-free utility)
 Implement Milestone 2 Task M2-T3:  Create a robust way to invoke git and capture `stdout`/`stderr` for parsing and diagnostics.  Review the full spec in spec_v1_frozen.md for context and aditional detail.  
 
-
-
+## M2-T4: Invoke git status --porcelain=v1 in repo mode
+Implement Milestone 2 Task M2-T4:  Retrieve uncommitted changes in the repo root.  Review the full spec in spec_v1_frozen.md for context and aditional detail.  
 
 
 

@@ -3,6 +3,8 @@ add_library(bendiff_core STATIC
   model.h
   repo_discovery.cpp
   repo_discovery.h
+  repo_status.cpp
+  repo_status.h
   process.cpp
   process.h
 )

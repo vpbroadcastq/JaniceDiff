@@ -3,6 +3,7 @@
 #include <logging.h>
 
 #include <repo_discovery.h>
+#include <repo_status.h>
 
 #include <QAction>
 #include <QActionGroup>
@@ -313,8 +314,20 @@ void MainWindow::reset_placeholders()
         if (m_invocation.mode == bendiff::AppMode::RepoMode) {
             // M2-T2 requirement: if not a git repo, no files are listed.
             if (m_repoRoot.has_value()) {
-                // Still placeholder until M2-T4/M2-T7; keep a visible hint.
-                m_fileListWidget->addItem("(repo files will appear here)");
+                // M2-T4: invoke git status (parsing deferred to M2-T5).
+                const auto r = bendiff::core::RunGitStatusPorcelainV1Z(*m_repoRoot);
+                if (r.exitCode == 0) {
+                    // Acceptance criteria: in a clean repo stdout is empty and file list empty.
+                    if (!r.stdoutText.empty()) {
+                        m_fileListWidget->addItem("(uncommitted changes detected; parsing not implemented yet)");
+                    }
+                } else {
+                    // Error surfacing is M2-T8; for now just log and keep list empty.
+                    bendiff::logging::info(std::string("git status failed (exitCode=") + std::to_string(r.exitCode) + ")");
+                    if (!r.stderrText.empty()) {
+                        bendiff::logging::info(std::string("git status stderr: ") + r.stderrText);
+                    }
+                }
             }
         } else if (m_invocation.mode == bendiff::AppMode::FolderDiffMode) {
             m_fileListWidget->addItem("(folder diff files will appear here)");

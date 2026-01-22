@@ -22,6 +22,7 @@ add_executable(bendiff_tests
   test_invocation.cpp
   test_core_model.cpp
   test_repo_discovery.cpp
+  test_repo_status.cpp
   test_process.cpp
 )
 
