@@ -32,6 +32,7 @@ private:
 
     void enter_repo_mode(const std::filesystem::path& repoPath);
     void enter_folder_diff_mode(const std::filesystem::path& leftPath, const std::filesystem::path& rightPath);
+    void refresh_file_list();
     void reset_placeholders();
 
     void refresh_repo_discovery();

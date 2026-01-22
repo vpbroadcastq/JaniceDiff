@@ -2,6 +2,8 @@
 
 #include <logging.h>
 
+#include <file_list_rows.h>
+#include <model.h>
 #include <repo_discovery.h>
 #include <repo_status.h>
 
@@ -12,6 +14,7 @@
 #include <QLabel>
 #include <QFileDialog>
 #include <QListWidget>
+#include <QListWidgetItem>
 #include <QMenu>
 #include <QMenuBar>
 #include <QSplitter>
@@ -51,6 +54,26 @@ void log_not_implemented(const char* what)
     bendiff::logging::info(std::string("Not implemented: ") + what);
 }
 
+const char* to_string(bendiff::core::ChangeKind kind)
+{
+    using bendiff::core::ChangeKind;
+    switch (kind) {
+    case ChangeKind::Modified:
+        return "Modified";
+    case ChangeKind::Added:
+        return "Added";
+    case ChangeKind::Deleted:
+        return "Deleted";
+    case ChangeKind::Renamed:
+        return "Renamed";
+    case ChangeKind::Unmerged:
+        return "Unmerged";
+    case ChangeKind::Unknown:
+        return "Unknown";
+    }
+    return "Unknown";
+}
+
 } // namespace
 
 MainWindow::MainWindow(const bendiff::Invocation& invocation, QWidget* parent)
@@ -65,6 +88,7 @@ MainWindow::MainWindow(const bendiff::Invocation& invocation, QWidget* parent)
 
     set_pane_mode(PaneMode::Inline);
     refresh_repo_discovery();
+    refresh_file_list();
     reset_placeholders();
     update_status_bar();
 }
@@ -231,23 +255,44 @@ void MainWindow::setup_central()
     setCentralWidget(m_rootSplitter);
 
     // Selection wiring (M1-T6): selecting a file updates diff placeholder labels.
+    // Selection wiring (M1-T6/M2-T7): selecting a file updates diff placeholder labels.
     if (m_fileListWidget) {
-        connect(m_fileListWidget, &QListWidget::currentTextChanged, this, [this](const QString& text) {
-            if (text.isEmpty()) {
+        connect(m_fileListWidget, &QListWidget::currentItemChanged, this, [this](QListWidgetItem* current, QListWidgetItem*) {
+            if (current == nullptr) {
                 reset_placeholders();
                 return;
             }
 
-            const std::string selected = text.toStdString();
-            bendiff::logging::info(std::string("Selected file list entry: ") + selected);
+            // Header rows are non-selectable, but be defensive.
+            if ((current->flags() & Qt::ItemIsSelectable) == 0) {
+                reset_placeholders();
+                return;
+            }
+
+            const QString path = current->data(Qt::UserRole).toString();
+            const int kindInt = current->data(Qt::UserRole + 1).toInt();
+            const QString renameFrom = current->data(Qt::UserRole + 2).toString();
+
+            if (path.isEmpty()) {
+                reset_placeholders();
+                return;
+            }
+
+            const auto kind = static_cast<bendiff::core::ChangeKind>(kindInt);
+            bendiff::logging::info(std::string("Selected file: ") + path.toStdString() + " kind=" + to_string(kind));
+
+            QString detail = QString("%1\nKind: %2").arg(path).arg(to_string(kind));
+            if (!renameFrom.isEmpty()) {
+                detail += QString("\nRenamed from: %1").arg(renameFrom);
+            }
 
             if (m_diffLabelA && m_diffLabelB) {
                 if (m_paneMode == PaneMode::Inline) {
-                    m_diffLabelA->setText(QString("Diff view (inline placeholder)\n\nSelected: %1").arg(text));
-                    m_diffLabelB->setText("Diff view (placeholder)");
+                    m_diffLabelA->setText(QString("Inline diff placeholder\n\n%1").arg(detail));
+                    m_diffLabelB->setText(QString());
                 } else {
-                    m_diffLabelA->setText(QString("Diff view (left placeholder)\n\nSelected: %1").arg(text));
-                    m_diffLabelB->setText(QString("Diff view (right placeholder)\n\nSelected: %1").arg(text));
+                    m_diffLabelA->setText(QString("Side-by-side diff placeholder (left)\n\n%1").arg(detail));
+                    m_diffLabelB->setText(QString("Side-by-side diff placeholder (right)\n\n%1").arg(detail));
                 }
             }
         });
@@ -264,6 +309,7 @@ void MainWindow::enter_repo_mode(const std::filesystem::path& repoPath)
 
     bendiff::logging::info(std::string("UI mode set: RepoMode repoPath=\"") + repoPath.string() + "\"");
     refresh_repo_discovery();
+    refresh_file_list();
     reset_placeholders();
     update_status_bar();
 }
@@ -280,8 +326,75 @@ void MainWindow::enter_folder_diff_mode(const std::filesystem::path& leftPath, c
                            "\" rightPath=\"" + rightPath.string() + "\"");
 
     m_repoRoot.reset();
+    refresh_file_list();
     reset_placeholders();
     update_status_bar();
+}
+
+void MainWindow::refresh_file_list()
+{
+    if (!m_fileListWidget) {
+        return;
+    }
+
+    m_fileListWidget->blockSignals(true);
+    m_fileListWidget->clear();
+
+    if (m_invocation.mode == bendiff::AppMode::RepoMode) {
+        // If not a git repo, no files are listed.
+        if (!m_repoRoot.has_value()) {
+            m_fileListWidget->blockSignals(false);
+            return;
+        }
+
+        const auto status = bendiff::core::GetRepoStatus(*m_repoRoot);
+        const auto rows = bendiff::core::BuildGroupedFileListRows(status.files);
+
+        for (const auto& row : rows) {
+            auto* item = new QListWidgetItem(QString::fromStdString(row.displayText));
+
+            if (row.kind == bendiff::core::FileListRowKind::Header) {
+                QFont f = item->font();
+                f.setBold(true);
+                item->setFont(f);
+                item->setForeground(QBrush(QColor(120, 120, 120)));
+                item->setBackground(QBrush(QColor(245, 245, 245)));
+
+                // Non-selectable header.
+                item->setFlags(item->flags() & ~Qt::ItemIsSelectable);
+                item->setData(Qt::UserRole, QString());
+                item->setData(Qt::UserRole + 1, static_cast<int>(bendiff::core::ChangeKind::Unknown));
+                item->setData(Qt::UserRole + 2, QString());
+            } else {
+                // File row: store metadata for selection handling.
+                if (row.file.has_value()) {
+                    const auto& f = *row.file;
+                    item->setData(Qt::UserRole, QString::fromStdString(f.repoRelativePath));
+                    item->setData(Qt::UserRole + 1, static_cast<int>(f.kind));
+                    item->setData(Qt::UserRole + 2, f.renameFrom.has_value() ? QString::fromStdString(*f.renameFrom) : QString());
+
+                    // Annotate renames in the UI list itself.
+                    if (f.kind == bendiff::core::ChangeKind::Renamed && f.renameFrom.has_value()) {
+                        item->setText(QString("%1 (renamed from %2)")
+                                          .arg(QString::fromStdString(f.repoRelativePath))
+                                          .arg(QString::fromStdString(*f.renameFrom)));
+                    }
+                }
+            }
+
+            m_fileListWidget->addItem(item);
+        }
+    } else if (m_invocation.mode == bendiff::AppMode::FolderDiffMode) {
+        // Folder diff is implemented in a later milestone; keep placeholders for now.
+        m_fileListWidget->addItem("(folder diff files will appear here)");
+        m_fileListWidget->addItem("only-in-left.txt");
+        m_fileListWidget->addItem("only-in-right.txt");
+        m_fileListWidget->addItem("changed-in-both.txt");
+    } else {
+        m_fileListWidget->addItem("(no mode selected)");
+    }
+
+    m_fileListWidget->blockSignals(false);
 }
 
 void MainWindow::refresh_repo_discovery()
@@ -308,37 +421,7 @@ void MainWindow::reset_placeholders()
     // No real logic yet; just keep the UI consistent and visibly reset.
 
     if (m_fileListWidget) {
-        m_fileListWidget->blockSignals(true);
-        m_fileListWidget->clear();
-
-        if (m_invocation.mode == bendiff::AppMode::RepoMode) {
-            // M2-T2 requirement: if not a git repo, no files are listed.
-            if (m_repoRoot.has_value()) {
-                // M2-T4: invoke git status (parsing deferred to M2-T5).
-                const auto r = bendiff::core::RunGitStatusPorcelainV1Z(*m_repoRoot);
-                if (r.exitCode == 0) {
-                    // Acceptance criteria: in a clean repo stdout is empty and file list empty.
-                    if (!r.stdoutText.empty()) {
-                        m_fileListWidget->addItem("(uncommitted changes detected; parsing not implemented yet)");
-                    }
-                } else {
-                    // Error surfacing is M2-T8; for now just log and keep list empty.
-                    bendiff::logging::info(std::string("git status failed (exitCode=") + std::to_string(r.exitCode) + ")");
-                    if (!r.stderrText.empty()) {
-                        bendiff::logging::info(std::string("git status stderr: ") + r.stderrText);
-                    }
-                }
-            }
-        } else if (m_invocation.mode == bendiff::AppMode::FolderDiffMode) {
-            m_fileListWidget->addItem("(folder diff files will appear here)");
-            m_fileListWidget->addItem("only-in-left.txt");
-            m_fileListWidget->addItem("only-in-right.txt");
-            m_fileListWidget->addItem("changed-in-both.txt");
-        } else {
-            m_fileListWidget->addItem("(no mode selected)");
-        }
-
-        m_fileListWidget->setCurrentRow(-1);
+        m_fileListWidget->clearSelection();
         m_fileListWidget->blockSignals(false);
     }
 

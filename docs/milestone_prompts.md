@@ -65,7 +65,8 @@ Implement Milestone 2 Task M2-T5:  Parse the porcelain output into `RepoStatus.f
 ## M2-T6: Sorting and grouping for the file list pane (flat list with directory groups)
 Implement Milestone 2 Task M2-T6:  Implement the ordering/grouping contract for the left pane.  Review the full spec in spec_v1_frozen.md for context and aditional detail.  
 
-
+## M2-T7: Wire repo mode UI to real data (replace placeholders)
+Implement Milestone 2 Task M2-T7:  Make the repo file list actually show detected changes.  Review the full spec in spec_v1_frozen.md for context and aditional detail.  
 
 
 
