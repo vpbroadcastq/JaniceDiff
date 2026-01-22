@@ -21,6 +21,7 @@ add_executable(bendiff_tests
   test_smoke.cpp
   test_invocation.cpp
   test_core_model.cpp
+  test_repo_discovery.cpp
 )
 
 set_target_properties(bendiff_tests PROPERTIES

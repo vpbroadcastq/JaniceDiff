@@ -4,6 +4,8 @@
 
 #include <invocation.h>
 
+#include <optional>
+
 class QAction;
 class QComboBox;
 class QLabel;
@@ -32,11 +34,15 @@ private:
     void enter_folder_diff_mode(const std::filesystem::path& leftPath, const std::filesystem::path& rightPath);
     void reset_placeholders();
 
+    void refresh_repo_discovery();
+
     void set_pane_mode(PaneMode mode);
     void update_status_bar();
 
     bendiff::Invocation m_invocation;
     PaneMode m_paneMode = PaneMode::Inline;
+
+    std::optional<std::filesystem::path> m_repoRoot;
 
     QAction* m_actionOpenRepo = nullptr;
     QAction* m_actionOpenFolders = nullptr;

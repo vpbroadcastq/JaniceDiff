@@ -18,7 +18,7 @@
 2) Unit tests can construct these structures without Qt.
 
 ## M2-T2: Repo discovery and validation (CWD + explicit path)
-**Objective:** Implement "find a git repo" semantics for bendiff and bendiff <PathToGitRepo>.
+**Objective:** Implement "find a git repo" semantics for `bendiff` and `bendiff <PathToGitRepo>`.
 ### Deliverables
 1) Core function, Qt-free:
     * `std::optional<std::filesystem::path> FindGitRepoRoot(std::filesystem::path startDir);`

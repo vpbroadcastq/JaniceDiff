@@ -32,23 +32,32 @@ Implement Milestone 1 Task M1-T3:  Implement argument parsing and mode detection
 Implement Milestone 1 Task M1-T4:  Enforce the spec’s error-handling contract.  Review the full spec in spec_v1_frozen.md for context and aditional detail.  Note that tasks 1 and 2 have not been completed yet (we are not doing the Milestone 1 tasks in order).
 
 ## M1-T1: Main window UI shell (menus, toolbar, central container)
-Implement Milesone 1 Task M1-T1:  Replace the empty Milestone 0 window with the structural UI defined in the spec.  Review the full spec in spec_v1_frozen.md for context and aditional detail.  Note that tasks 3 and 4 have been completed, but not task 2 (we are not doing the Milestone 1 tasks in order).
+Implement Milestone 1 Task M1-T1:  Replace the empty Milestone 0 window with the structural UI defined in the spec.  Review the full spec in spec_v1_frozen.md for context and aditional detail.  Note that tasks 3 and 4 have been completed, but not task 2 (we are not doing the Milestone 1 tasks in order).
 
 ## M1-T2: Central pane layout and mode switching (2-pane vs 3-pane)
-Implement Milesone 1 Task M1-T2:  Implement the pane topology rules from the spec.  Review the full spec in spec_v1_frozen.md for context and aditional detail.  Note that tasks 1, 3, and 4 have been completed (we are not doing the Milestone 1 tasks in order).
+Implement Milestone 1 Task M1-T2:  Implement the pane topology rules from the spec.  Review the full spec in spec_v1_frozen.md for context and aditional detail.  Note that tasks 1, 3, and 4 have been completed (we are not doing the Milestone 1 tasks in order).
 
 ## M1-T5: Repo / folder selection via UI (File menu)
-Implement Milesone 1 Task M1-T5:  Enable manual mode entry via the UI, even before logic exists.  Review the full spec in spec_v1_frozen.md for context and aditional detail.
+Implement Milestone 1 Task M1-T5:  Enable manual mode entry via the UI, even before logic exists.  Review the full spec in spec_v1_frozen.md for context and aditional detail.
 
 ## M1-T6: Placeholder file list pane and selection wiring
-Implement Milesone 1 Task M1-T6:  Lay groundwork for Milestone 2 without implementing Git logic.  Review the full spec in spec_v1_frozen.md for context and aditional detail.
+Implement Milestone 1 Task M1-T6:  Lay groundwork for Milestone 2 without implementing Git logic.  Review the full spec in spec_v1_frozen.md for context and aditional detail.
 
 
 
 
 
 ## M2-T1: Define core data model for “changed file” entries (Qt-free)
-Implement Milesone 2 Task M2-T1:  Create a minimal, stable representation of repo file changes to drive UI and tests.  Review the full spec in spec_v1_frozen.md for context and aditional detail.  
+Implement Milestone 2 Task M2-T1:  Create a minimal, stable representation of repo file changes to drive UI and tests.  Review the full spec in spec_v1_frozen.md for context and aditional detail.  
+
+## M2-T2: Repo discovery and validation (CWD + explicit path)
+Implement Milestone 2 Task M2-T2:  Implement "find a git repo" semantics for `bendiff` and `bendiff <PathToGitRepo>`.  Review the full spec in spec_v1_frozen.md for context and aditional detail.  
+
+
+
+
+
+
 
 
 

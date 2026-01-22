@@ -2,6 +2,8 @@
 
 #include <logging.h>
 
+#include <repo_discovery.h>
+
 #include <QAction>
 #include <QActionGroup>
 #include <QComboBox>
@@ -61,6 +63,7 @@ MainWindow::MainWindow(const bendiff::Invocation& invocation, QWidget* parent)
     setup_central();
 
     set_pane_mode(PaneMode::Inline);
+    refresh_repo_discovery();
     reset_placeholders();
     update_status_bar();
 }
@@ -259,6 +262,7 @@ void MainWindow::enter_repo_mode(const std::filesystem::path& repoPath)
     m_invocation.error.clear();
 
     bendiff::logging::info(std::string("UI mode set: RepoMode repoPath=\"") + repoPath.string() + "\"");
+    refresh_repo_discovery();
     reset_placeholders();
     update_status_bar();
 }
@@ -273,8 +277,29 @@ void MainWindow::enter_folder_diff_mode(const std::filesystem::path& leftPath, c
 
     bendiff::logging::info(std::string("UI mode set: FolderDiffMode leftPath=\"") + leftPath.string() +
                            "\" rightPath=\"" + rightPath.string() + "\"");
+
+    m_repoRoot.reset();
     reset_placeholders();
     update_status_bar();
+}
+
+void MainWindow::refresh_repo_discovery()
+{
+    m_repoRoot.reset();
+
+    if (m_invocation.mode != bendiff::AppMode::RepoMode) {
+        return;
+    }
+
+    // v1: repo discovery is simply walking up parents looking for a .git directory.
+    // No git execution here (that's M2-T3/M2-T4).
+    const auto root = bendiff::core::FindGitRepoRoot(m_invocation.repoPath);
+    if (root.has_value()) {
+        m_repoRoot = *root;
+        bendiff::logging::info(std::string("Repo root found: \"") + m_repoRoot->string() + "\"");
+    } else {
+        bendiff::logging::info("No git repo found for repo mode start path");
+    }
 }
 
 void MainWindow::reset_placeholders()
@@ -286,10 +311,11 @@ void MainWindow::reset_placeholders()
         m_fileListWidget->clear();
 
         if (m_invocation.mode == bendiff::AppMode::RepoMode) {
-            // Spec allows dummy data; keep the required placeholder text present.
-            m_fileListWidget->addItem("(repo files will appear here)");
-            m_fileListWidget->addItem("src/app/MainWindow.cpp");
-            m_fileListWidget->addItem("README.md");
+            // M2-T2 requirement: if not a git repo, no files are listed.
+            if (m_repoRoot.has_value()) {
+                // Still placeholder until M2-T4/M2-T7; keep a visible hint.
+                m_fileListWidget->addItem("(repo files will appear here)");
+            }
         } else if (m_invocation.mode == bendiff::AppMode::FolderDiffMode) {
             m_fileListWidget->addItem("(folder diff files will appear here)");
             m_fileListWidget->addItem("only-in-left.txt");
@@ -362,8 +388,10 @@ void MainWindow::update_status_bar()
     QString paths;
     if (m_invocation.mode == bendiff::AppMode::RepoMode) {
         modeText = "File";
-        if (!m_invocation.repoPath.empty()) {
-            paths = QString("Repo: %1").arg(QString::fromStdString(m_invocation.repoPath.string()));
+        if (m_repoRoot.has_value()) {
+            paths = QString("Repo root: %1").arg(QString::fromStdString(m_repoRoot->string()));
+        } else {
+            paths = "No git repo found";
         }
     } else if (m_invocation.mode == bendiff::AppMode::FolderDiffMode) {
         modeText = "Folder";
