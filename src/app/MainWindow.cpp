@@ -193,6 +193,12 @@ void MainWindow::setup_toolbar()
     m_actionNextChange = new QAction("Next Change", this);
     m_actionPrevChange = new QAction("Previous Change", this);
 
+    // v1 refresh semantics:
+    // - Repo mode: automatic refresh comes later (Milestone 7), so this is a no-op.
+    // - Folder diff mode: manual refresh via toolbar or F5.
+    m_actionRefresh->setShortcut(QKeySequence(Qt::Key_F5));
+    m_actionRefresh->setShortcutContext(Qt::ApplicationShortcut);
+
     toolbar->addAction(m_actionOpenRepo);
     toolbar->addAction(m_actionOpenFolders);
     toolbar->addSeparator();
@@ -224,7 +230,18 @@ void MainWindow::setup_toolbar()
     toolbar->addAction(m_actionInlineMode);
     toolbar->addAction(m_actionSideBySideMode);
 
-    connect(m_actionRefresh, &QAction::triggered, this, [] { log_not_implemented("Refresh"); });
+    connect(m_actionRefresh, &QAction::triggered, this, [this] {
+        if (m_invocation.mode == bendiff::AppMode::FolderDiffMode) {
+            refresh_file_list();
+            reset_placeholders();
+            update_status_bar();
+            return;
+        }
+
+        // Repo mode refresh is automatic in a later milestone.
+        bendiff::logging::info("Refresh requested in repo mode (no-op in v1 milestones before M7)");
+        statusBar()->showMessage("Repo refresh is automatic (manual refresh not implemented yet)");
+    });
     connect(m_actionNextChange, &QAction::triggered, this, [] { log_not_implemented("Next Change"); });
     connect(m_actionPrevChange, &QAction::triggered, this, [] { log_not_implemented("Previous Change"); });
 
