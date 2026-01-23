@@ -1,4 +1,6 @@
 add_library(bendiff_core STATIC
+  dir_diff.cpp
+  dir_diff.h
   dir_diff_model.h
   dir_walk.cpp
   dir_walk.h
