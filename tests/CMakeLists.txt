@@ -21,6 +21,7 @@ add_executable(bendiff_tests
   test_file_list_rows.cpp
   test_dir_diff_model.cpp
   test_dir_walk.cpp
+  test_file_compare.cpp
   test_smoke.cpp
   test_invocation.cpp
   test_core_model.cpp
