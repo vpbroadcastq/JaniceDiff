@@ -1,4 +1,5 @@
 add_library(bendiff_core STATIC
+  dir_diff_model.h
   file_list_rows.cpp
   file_list_rows.h
   model.cpp
