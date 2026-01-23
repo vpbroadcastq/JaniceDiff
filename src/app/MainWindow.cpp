@@ -2,6 +2,7 @@
 
 #include <logging.h>
 
+#include <dir_diff.h>
 #include <file_list_rows.h>
 #include <model.h>
 #include <repo_discovery.h>
@@ -73,6 +74,40 @@ const char* to_string(bendiff::core::ChangeKind kind)
         return "Unknown";
     }
     return "Unknown";
+}
+
+const char* to_string(bendiff::core::DirEntryStatus status)
+{
+    using bendiff::core::DirEntryStatus;
+    switch (status) {
+    case DirEntryStatus::Same:
+        return "Same";
+    case DirEntryStatus::Different:
+        return "Different";
+    case DirEntryStatus::LeftOnly:
+        return "LeftOnly";
+    case DirEntryStatus::RightOnly:
+        return "RightOnly";
+    case DirEntryStatus::Unreadable:
+        return "Unreadable";
+    }
+    return "Unknown";
+}
+
+bool validate_dir_path(const std::filesystem::path& p)
+{
+    std::error_code ec;
+    if (p.empty()) {
+        return false;
+    }
+    if (!std::filesystem::exists(p, ec) || ec) {
+        return false;
+    }
+    ec.clear();
+    if (!std::filesystem::is_directory(p, ec) || ec) {
+        return false;
+    }
+    return true;
 }
 
 } // namespace
@@ -270,31 +305,64 @@ void MainWindow::setup_central()
                 return;
             }
 
-            const QString path = current->data(Qt::UserRole).toString();
-            const int kindInt = current->data(Qt::UserRole + 1).toInt();
-            const QString renameFrom = current->data(Qt::UserRole + 2).toString();
+            if (m_invocation.mode == bendiff::AppMode::RepoMode) {
+                const QString path = current->data(Qt::UserRole).toString();
+                const int kindInt = current->data(Qt::UserRole + 1).toInt();
+                const QString renameFrom = current->data(Qt::UserRole + 2).toString();
 
-            if (path.isEmpty()) {
-                reset_placeholders();
-                return;
-            }
-
-            const auto kind = static_cast<bendiff::core::ChangeKind>(kindInt);
-            bendiff::logging::info(std::string("Selected file: ") + path.toStdString() + " kind=" + to_string(kind));
-
-            QString detail = QString("%1\nKind: %2").arg(path).arg(to_string(kind));
-            if (!renameFrom.isEmpty()) {
-                detail += QString("\nRenamed from: %1").arg(renameFrom);
-            }
-
-            if (m_diffLabelA && m_diffLabelB) {
-                if (m_paneMode == PaneMode::Inline) {
-                    m_diffLabelA->setText(QString("Inline diff placeholder\n\n%1").arg(detail));
-                    m_diffLabelB->setText(QString());
-                } else {
-                    m_diffLabelA->setText(QString("Side-by-side diff placeholder (left)\n\n%1").arg(detail));
-                    m_diffLabelB->setText(QString("Side-by-side diff placeholder (right)\n\n%1").arg(detail));
+                if (path.isEmpty()) {
+                    reset_placeholders();
+                    return;
                 }
+
+                const auto kind = static_cast<bendiff::core::ChangeKind>(kindInt);
+                bendiff::logging::info(std::string("Selected repo file: ") + path.toStdString() + " kind=" + to_string(kind));
+
+                QString detail = QString("%1\nKind: %2").arg(path).arg(to_string(kind));
+                if (!renameFrom.isEmpty()) {
+                    detail += QString("\nRenamed from: %1").arg(renameFrom);
+                }
+
+                if (m_diffLabelA && m_diffLabelB) {
+                    if (m_paneMode == PaneMode::Inline) {
+                        m_diffLabelA->setText(QString("Inline diff placeholder\n\n%1").arg(detail));
+                        m_diffLabelB->setText(QString());
+                    } else {
+                        m_diffLabelA->setText(QString("Side-by-side diff placeholder (left)\n\n%1").arg(detail));
+                        m_diffLabelB->setText(QString("Side-by-side diff placeholder (right)\n\n%1").arg(detail));
+                    }
+                }
+            } else if (m_invocation.mode == bendiff::AppMode::FolderDiffMode) {
+                const QString rel = current->data(Qt::UserRole).toString();
+                const int statusInt = current->data(Qt::UserRole + 1).toInt();
+                const QString leftFull = current->data(Qt::UserRole + 2).toString();
+                const QString rightFull = current->data(Qt::UserRole + 3).toString();
+
+                if (rel.isEmpty()) {
+                    reset_placeholders();
+                    return;
+                }
+
+                const auto status = static_cast<bendiff::core::DirEntryStatus>(statusInt);
+                bendiff::logging::info(std::string("Selected folder entry: ") + rel.toStdString() + " status=" + to_string(status));
+
+                const QString detail = QString("%1\nStatus: %2\n\nLeft: %3\nRight: %4")
+                                           .arg(rel)
+                                           .arg(to_string(status))
+                                           .arg(leftFull.isEmpty() ? QString("(missing)") : leftFull)
+                                           .arg(rightFull.isEmpty() ? QString("(missing)") : rightFull);
+
+                if (m_diffLabelA && m_diffLabelB) {
+                    if (m_paneMode == PaneMode::Inline) {
+                        m_diffLabelA->setText(QString("Folder diff placeholder\n\n%1").arg(detail));
+                        m_diffLabelB->setText(QString());
+                    } else {
+                        m_diffLabelA->setText(QString("Folder diff placeholder (left)\n\n%1").arg(detail));
+                        m_diffLabelB->setText(QString("Folder diff placeholder (right)\n\n%1").arg(detail));
+                    }
+                }
+            } else {
+                reset_placeholders();
             }
         });
     }
@@ -410,11 +478,55 @@ void MainWindow::refresh_file_list()
             m_fileListWidget->addItem(item);
         }
     } else if (m_invocation.mode == bendiff::AppMode::FolderDiffMode) {
-        // Folder diff is implemented in a later milestone; keep placeholders for now.
-        m_fileListWidget->addItem("(folder diff files will appear here)");
-        m_fileListWidget->addItem("only-in-left.txt");
-        m_fileListWidget->addItem("only-in-right.txt");
-        m_fileListWidget->addItem("changed-in-both.txt");
+        if (!validate_dir_path(m_invocation.leftPath) || !validate_dir_path(m_invocation.rightPath)) {
+            QMessageBox::critical(
+                this,
+                "Folder diff failed",
+                QString("One or both folder paths are invalid.\n\nLeft: %1\nRight: %2")
+                    .arg(QString::fromStdString(m_invocation.leftPath.string()))
+                    .arg(QString::fromStdString(m_invocation.rightPath.string())));
+
+            m_fileListWidget->blockSignals(false);
+            return;
+        }
+
+        const auto diff = bendiff::core::DiffDirectories(m_invocation.leftPath, m_invocation.rightPath);
+        for (const auto& e : diff.entries) {
+            const QString rel = QString::fromStdString(e.relativePath);
+            const QString statusText = QString::fromLatin1(to_string(e.status));
+
+            QString display = rel;
+            display += QString(" [%1]").arg(statusText);
+
+            auto* item = new QListWidgetItem(display);
+
+            // Store metadata for selection handling.
+            item->setData(Qt::UserRole, rel);
+            item->setData(Qt::UserRole + 1, static_cast<int>(e.status));
+
+            const std::filesystem::path leftFull = diff.leftRoot / std::filesystem::path(e.relativePath).make_preferred();
+            const std::filesystem::path rightFull = diff.rightRoot / std::filesystem::path(e.relativePath).make_preferred();
+
+            if (e.status == bendiff::core::DirEntryStatus::RightOnly) {
+                item->setData(Qt::UserRole + 2, QString());
+                item->setData(Qt::UserRole + 3, QString::fromStdString(rightFull.string()));
+            } else if (e.status == bendiff::core::DirEntryStatus::LeftOnly) {
+                item->setData(Qt::UserRole + 2, QString::fromStdString(leftFull.string()));
+                item->setData(Qt::UserRole + 3, QString());
+            } else {
+                item->setData(Qt::UserRole + 2, QString::fromStdString(leftFull.string()));
+                item->setData(Qt::UserRole + 3, QString::fromStdString(rightFull.string()));
+            }
+
+            // Visual hint for status.
+            if (e.status == bendiff::core::DirEntryStatus::Different) {
+                item->setForeground(QBrush(QColor(120, 60, 0)));
+            } else if (e.status == bendiff::core::DirEntryStatus::Unreadable) {
+                item->setForeground(QBrush(QColor(160, 0, 0)));
+            }
+
+            m_fileListWidget->addItem(item);
+        }
     } else {
         m_fileListWidget->addItem("(no mode selected)");
     }
