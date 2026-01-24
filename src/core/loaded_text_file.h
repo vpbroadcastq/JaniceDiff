@@ -34,4 +34,14 @@ struct SplitLinesResult {
 // - `hadFinalNewline` is true iff the input ends with a line break.
 SplitLinesResult SplitLinesNormalizeNewlines(std::string_view utf8Text);
 
+// Loads a file as UTF-8 text.
+//
+// Behavior:
+// - If the file doesn't exist: status=NotFound
+// - If the file exists but can't be read: status=Unreadable
+// - If the file contains invalid UTF-8 bytes: status=NotUtf8
+// - Otherwise: status=Ok, and line endings are normalized via
+//   SplitLinesNormalizeNewlines().
+LoadedTextFile LoadUtf8TextFile(std::filesystem::path absolutePath);
+
 } // namespace bendiff::core
