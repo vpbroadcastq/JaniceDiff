@@ -8,6 +8,8 @@ add_library(bendiff_core STATIC
   file_compare.h
   file_list_rows.cpp
   file_list_rows.h
+  loaded_text_file.cpp
+  loaded_text_file.h
   model.cpp
   model.h
   porcelain.cpp
