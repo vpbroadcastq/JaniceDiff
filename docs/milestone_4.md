@@ -68,7 +68,7 @@ Run `git show HEAD:<path>` (or `:<path>` depending on desired semantics) to obta
 1) Do not attempt to render binary bytes as text
 2) Avoid guessing encodings
 ### Acceptance criteria
-1) Unit tests: invalid UTF-8 results in “unsupported” display state
+1) Unit tests: invalid UTF-8 results in "unsupported" display state
 2) Manual test: select a known binary file; UI shows message, not garbage
 
 ### M4-T5: Deleted-file handling (inline + side-by-side semantics)

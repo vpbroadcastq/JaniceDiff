@@ -34,6 +34,20 @@ struct SplitLinesResult {
 // - `hadFinalNewline` is true iff the input ends with a line break.
 SplitLinesResult SplitLinesNormalizeNewlines(std::string_view utf8Text);
 
+// Validates that the provided bytes are well-formed UTF-8.
+bool IsValidUtf8(std::string_view bytes);
+
+// Loads UTF-8 text from an in-memory byte buffer.
+//
+// - If bytes are invalid UTF-8: status=NotUtf8
+// - Otherwise: status=Ok and newline normalization is applied.
+LoadedTextFile LoadUtf8TextFromBytes(std::string_view bytes, std::filesystem::path sourceLabel);
+
+inline bool IsUnsupportedText(const LoadedTextFile& f)
+{
+    return f.status == LoadStatus::NotUtf8;
+}
+
 // Loads a file as UTF-8 text.
 //
 // Behavior:

@@ -3,7 +3,9 @@
 #include <logging.h>
 
 #include <dir_diff.h>
+#include <content_sources.h>
 #include <file_list_rows.h>
+#include <loaded_text_file.h>
 #include <model.h>
 #include <repo_discovery.h>
 #include <repo_status.h>
@@ -335,18 +337,58 @@ void MainWindow::setup_central()
                 const auto kind = static_cast<bendiff::core::ChangeKind>(kindInt);
                 bendiff::logging::info(std::string("Selected repo file: ") + path.toStdString() + " kind=" + to_string(kind));
 
+                // M4-T4: binary/unsupported detection.
+                bendiff::core::LoadedTextFile leftLoaded;
+                bendiff::core::LoadedTextFile rightLoaded;
+                if (m_repoRoot.has_value()) {
+                    bendiff::core::ChangedFile cf;
+                    cf.repoRelativePath = path.toStdString();
+                    cf.kind = kind;
+                    if (!renameFrom.isEmpty()) {
+                        cf.renameFrom = renameFrom.toStdString();
+                    }
+
+                    const auto sides = bendiff::core::ResolveRepoContent(*m_repoRoot, cf);
+
+                    if (sides.left.kind == bendiff::core::ContentSource::Kind::FileOnDisk) {
+                        leftLoaded = bendiff::core::LoadUtf8TextFile(sides.left.absolutePath);
+                    } else if (sides.left.kind == bendiff::core::ContentSource::Kind::Bytes) {
+                        leftLoaded = bendiff::core::LoadUtf8TextFromBytes(sides.left.bytes, "HEAD:" + cf.repoRelativePath);
+                    } else {
+                        leftLoaded.absolutePath.clear();
+                        leftLoaded.status = bendiff::core::LoadStatus::NotFound;
+                    }
+
+                    if (sides.right.kind == bendiff::core::ContentSource::Kind::FileOnDisk) {
+                        rightLoaded = bendiff::core::LoadUtf8TextFile(sides.right.absolutePath);
+                    } else if (sides.right.kind == bendiff::core::ContentSource::Kind::Bytes) {
+                        rightLoaded = bendiff::core::LoadUtf8TextFromBytes(sides.right.bytes, sides.right.absolutePath);
+                    } else {
+                        rightLoaded.absolutePath.clear();
+                        rightLoaded.status = bendiff::core::LoadStatus::NotFound;
+                    }
+                }
+
                 QString detail = QString("%1\nKind: %2").arg(path).arg(to_string(kind));
                 if (!renameFrom.isEmpty()) {
                     detail += QString("\nRenamed from: %1").arg(renameFrom);
                 }
 
+                const bool unsupported = bendiff::core::IsUnsupportedText(leftLoaded) || bendiff::core::IsUnsupportedText(rightLoaded);
+                if (unsupported) {
+                    detail += "\n\nBinary/Unsupported (non-UTF-8)";
+                }
+
                 if (m_diffLabelA && m_diffLabelB) {
                     if (m_paneMode == PaneMode::Inline) {
-                        m_diffLabelA->setText(QString("Inline diff placeholder\n\n%1").arg(detail));
+                        const QString header = unsupported ? "Unsupported" : "Inline diff placeholder";
+                        m_diffLabelA->setText(QString("%1\n\n%2").arg(header).arg(detail));
                         m_diffLabelB->setText(QString());
                     } else {
-                        m_diffLabelA->setText(QString("Side-by-side diff placeholder (left)\n\n%1").arg(detail));
-                        m_diffLabelB->setText(QString("Side-by-side diff placeholder (right)\n\n%1").arg(detail));
+                        const QString leftHeader = bendiff::core::IsUnsupportedText(leftLoaded) ? "Unsupported (left)" : "Side-by-side diff placeholder (left)";
+                        const QString rightHeader = bendiff::core::IsUnsupportedText(rightLoaded) ? "Unsupported (right)" : "Side-by-side diff placeholder (right)";
+                        m_diffLabelA->setText(QString("%1\n\n%2").arg(leftHeader).arg(detail));
+                        m_diffLabelB->setText(QString("%1\n\n%2").arg(rightHeader).arg(detail));
                     }
                 }
             } else if (m_invocation.mode == bendiff::AppMode::FolderDiffMode) {
@@ -363,6 +405,21 @@ void MainWindow::setup_central()
                 const auto status = static_cast<bendiff::core::DirEntryStatus>(statusInt);
                 bendiff::logging::info(std::string("Selected folder entry: ") + rel.toStdString() + " status=" + to_string(status));
 
+                // M4-T4: show unsupported if either side is non-UTF-8.
+                bendiff::core::LoadedTextFile leftLoaded;
+                bendiff::core::LoadedTextFile rightLoaded;
+                if (!leftFull.isEmpty()) {
+                    leftLoaded = bendiff::core::LoadUtf8TextFile(std::filesystem::path(leftFull.toStdString()));
+                } else {
+                    leftLoaded.status = bendiff::core::LoadStatus::NotFound;
+                }
+                if (!rightFull.isEmpty()) {
+                    rightLoaded = bendiff::core::LoadUtf8TextFile(std::filesystem::path(rightFull.toStdString()));
+                } else {
+                    rightLoaded.status = bendiff::core::LoadStatus::NotFound;
+                }
+                const bool unsupported = bendiff::core::IsUnsupportedText(leftLoaded) || bendiff::core::IsUnsupportedText(rightLoaded);
+
                 const QString detail = QString("%1\nStatus: %2\n\nLeft: %3\nRight: %4")
                                            .arg(rel)
                                            .arg(to_string(status))
@@ -371,11 +428,14 @@ void MainWindow::setup_central()
 
                 if (m_diffLabelA && m_diffLabelB) {
                     if (m_paneMode == PaneMode::Inline) {
-                        m_diffLabelA->setText(QString("Folder diff placeholder\n\n%1").arg(detail));
+                        const QString header = unsupported ? "Unsupported" : "Folder diff placeholder";
+                        m_diffLabelA->setText(QString("%1\n\n%2").arg(header).arg(detail));
                         m_diffLabelB->setText(QString());
                     } else {
-                        m_diffLabelA->setText(QString("Folder diff placeholder (left)\n\n%1").arg(detail));
-                        m_diffLabelB->setText(QString("Folder diff placeholder (right)\n\n%1").arg(detail));
+                        const QString leftHeader = bendiff::core::IsUnsupportedText(leftLoaded) ? "Unsupported (left)" : "Folder diff placeholder (left)";
+                        const QString rightHeader = bendiff::core::IsUnsupportedText(rightLoaded) ? "Unsupported (right)" : "Folder diff placeholder (right)";
+                        m_diffLabelA->setText(QString("%1\n\n%2").arg(leftHeader).arg(detail));
+                        m_diffLabelB->setText(QString("%1\n\n%2").arg(rightHeader).arg(detail));
                     }
                 }
             } else {

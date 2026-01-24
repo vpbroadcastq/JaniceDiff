@@ -6,8 +6,6 @@ namespace fs = std::filesystem;
 
 namespace bendiff::core {
 
-namespace {
-
 // RFC 3629 style UTF-8 validation.
 bool IsValidUtf8(std::string_view bytes)
 {
@@ -119,7 +117,22 @@ bool IsValidUtf8(std::string_view bytes)
     return true;
 }
 
-} // namespace
+LoadedTextFile LoadUtf8TextFromBytes(std::string_view bytes, fs::path sourceLabel)
+{
+    LoadedTextFile out;
+    out.absolutePath = std::move(sourceLabel);
+
+    if (!IsValidUtf8(bytes)) {
+        out.status = LoadStatus::NotUtf8;
+        return out;
+    }
+
+    const auto split = SplitLinesNormalizeNewlines(bytes);
+    out.lines = split.lines;
+    out.hadFinalNewline = split.hadFinalNewline;
+    out.status = LoadStatus::Ok;
+    return out;
+}
 
 SplitLinesResult SplitLinesNormalizeNewlines(std::string_view text)
 {
@@ -208,16 +221,7 @@ LoadedTextFile LoadUtf8TextFile(fs::path absolutePath)
         return out;
     }
 
-    if (!IsValidUtf8(bytes)) {
-        out.status = LoadStatus::NotUtf8;
-        return out;
-    }
-
-    const auto split = SplitLinesNormalizeNewlines(bytes);
-    out.lines = split.lines;
-    out.hadFinalNewline = split.hadFinalNewline;
-    out.status = LoadStatus::Ok;
-    return out;
+    return LoadUtf8TextFromBytes(bytes, out.absolutePath);
 }
 
 } // namespace bendiff::core

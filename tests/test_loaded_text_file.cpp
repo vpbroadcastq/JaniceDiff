@@ -182,4 +182,21 @@ TEST(LoadUtf8TextFile, MissingFileIsNotFound)
     EXPECT_EQ(loaded.status, LoadStatus::NotFound);
 }
 
+TEST(LoadUtf8TextFromBytes, ValidUtf8Loads)
+{
+    const auto loaded = LoadUtf8TextFromBytes("hi\nthere\n", "HEAD:demo.txt");
+    EXPECT_EQ(loaded.status, LoadStatus::Ok);
+    EXPECT_EQ(loaded.lines, (std::vector<std::string>{"hi", "there"}));
+    EXPECT_TRUE(loaded.hadFinalNewline);
+    EXPECT_TRUE(loaded.absolutePath.string().find("HEAD:") != std::string::npos);
+}
+
+TEST(LoadUtf8TextFromBytes, InvalidUtf8IsUnsupported)
+{
+    const std::string bytes = std::string("x") + std::string(1, static_cast<char>(0xC3)) + "(";
+    const auto loaded = LoadUtf8TextFromBytes(bytes, "HEAD:bin.dat");
+    EXPECT_EQ(loaded.status, LoadStatus::NotUtf8);
+    EXPECT_TRUE(IsUnsupportedText(loaded));
+}
+
 } // namespace bendiff::core
