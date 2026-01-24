@@ -382,6 +382,58 @@ void MainWindow::setup_central()
                 reset_placeholders();
             }
         });
+
+        // Double-click wiring (M3-T7): in folder diff mode, open a placeholder diff view.
+        connect(m_fileListWidget, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem* item) {
+            if (item == nullptr) {
+                return;
+            }
+
+            // Be defensive: repo mode has non-selectable header rows.
+            if ((item->flags() & Qt::ItemIsSelectable) == 0) {
+                return;
+            }
+
+            if (m_invocation.mode != bendiff::AppMode::FolderDiffMode) {
+                return;
+            }
+
+            const QString rel = item->data(Qt::UserRole).toString();
+            const int statusInt = item->data(Qt::UserRole + 1).toInt();
+            const QString leftFull = item->data(Qt::UserRole + 2).toString();
+            const QString rightFull = item->data(Qt::UserRole + 3).toString();
+
+            if (rel.isEmpty()) {
+                return;
+            }
+
+            const auto status = static_cast<bendiff::core::DirEntryStatus>(statusInt);
+
+            QString header = QString("Folder diff placeholder\n\n%1\nStatus: %2")
+                                 .arg(rel)
+                                 .arg(to_string(status));
+
+            const bool canDiffBothSides = (status == bendiff::core::DirEntryStatus::Same ||
+                                          status == bendiff::core::DirEntryStatus::Different);
+
+            if (!canDiffBothSides) {
+                header += "\n\nCannot diff both sides for this entry.";
+            }
+
+            const QString detail = QString("\n\nLeft: %1\nRight: %2")
+                                       .arg(leftFull.isEmpty() ? QString("(missing)") : leftFull)
+                                       .arg(rightFull.isEmpty() ? QString("(missing)") : rightFull);
+
+            if (m_diffLabelA && m_diffLabelB) {
+                if (m_paneMode == PaneMode::Inline) {
+                    m_diffLabelA->setText(header + detail);
+                    m_diffLabelB->setText(QString());
+                } else {
+                    m_diffLabelA->setText(header + "\n\n(left pane)" + detail);
+                    m_diffLabelB->setText(header + "\n\n(right pane)" + detail);
+                }
+            }
+        });
     }
 }
 
