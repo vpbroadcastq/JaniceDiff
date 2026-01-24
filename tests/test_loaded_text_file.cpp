@@ -199,4 +199,50 @@ TEST(LoadUtf8TextFromBytes, InvalidUtf8IsUnsupported)
     EXPECT_TRUE(IsUnsupportedText(loaded));
 }
 
+TEST(Utf8Validation, AcceptsAsciiAndMultibyte)
+{
+    EXPECT_TRUE(IsValidUtf8(""));
+    EXPECT_TRUE(IsValidUtf8("hello"));
+
+    // U+00A2 (¢): C2 A2
+    EXPECT_TRUE(IsValidUtf8(std::string_view("\xC2\xA2", 2)));
+
+    // U+20AC (€): E2 82 AC
+    EXPECT_TRUE(IsValidUtf8(std::string_view("\xE2\x82\xAC", 3)));
+
+    // U+1F600 (😀): F0 9F 98 80
+    EXPECT_TRUE(IsValidUtf8(std::string_view("\xF0\x9F\x98\x80", 4)));
+}
+
+TEST(Utf8Validation, RejectsCommonInvalidSequences)
+{
+    // Lone continuation byte.
+    EXPECT_FALSE(IsValidUtf8(std::string_view("\x80", 1)));
+
+    // Truncated 2-byte sequence.
+    EXPECT_FALSE(IsValidUtf8(std::string_view("\xC2", 1)));
+
+    // Overlong encoding of '/': C0 AF (should be 2F).
+    EXPECT_FALSE(IsValidUtf8(std::string_view("\xC0\xAF", 2)));
+
+    // UTF-16 surrogate half U+D800 encoded in UTF-8 is invalid: ED A0 80.
+    EXPECT_FALSE(IsValidUtf8(std::string_view("\xED\xA0\x80", 3)));
+
+    // Codepoint > U+10FFFF: F4 90 80 80.
+    EXPECT_FALSE(IsValidUtf8(std::string_view("\xF4\x90\x80\x80", 4)));
+}
+
+TEST(IsUnsupportedText, TrueOnlyForNotUtf8)
+{
+    LoadedTextFile f;
+    f.status = LoadStatus::Ok;
+    EXPECT_FALSE(IsUnsupportedText(f));
+    f.status = LoadStatus::NotFound;
+    EXPECT_FALSE(IsUnsupportedText(f));
+    f.status = LoadStatus::Unreadable;
+    EXPECT_FALSE(IsUnsupportedText(f));
+    f.status = LoadStatus::NotUtf8;
+    EXPECT_TRUE(IsUnsupportedText(f));
+}
+
 } // namespace bendiff::core

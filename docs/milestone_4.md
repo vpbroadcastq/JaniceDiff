@@ -119,7 +119,7 @@ Run `git show HEAD:<path>` (or `:<path>` depending on desired semantics) to obta
 1) ctest passes on Windows and Linux
 2) Loader tests do not depend on external network/resources
 
-##Milestone 4 Exit Criteria
+## Milestone 4 Exit Criteria
 Milestone 4 is complete when:
 1) UTF-8 loader exists and normalizes CRLF/LF 
 2) Binary detection works via UTF-8 decode failure and shows “unsupported” 
