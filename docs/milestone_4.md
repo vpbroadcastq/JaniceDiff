@@ -44,7 +44,7 @@
         * Right side: working tree version
         * For deleted files: working tree path missing → special handling
 
-**Important note:** This milestone still avoids line diff, but repo-mode needs access to the committed version’s content to show something meaningful. The simplest v1 approach consistent with your spec is:
+**Important note:** This milestone still avoids line diff, but repo-mode needs access to the committed version’s content to show something meaningful. The simplest v1 approach consistent with the spec is:
 Run `git show HEAD:<path>` (or `:<path>` depending on desired semantics) to obtain committed content bytes.
 ### Constraints
 1) Keep this logic in core (Git invocation via the process runner from Milestone 2)

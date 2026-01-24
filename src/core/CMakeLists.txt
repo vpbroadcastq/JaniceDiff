@@ -1,4 +1,6 @@
 add_library(bendiff_core STATIC
+  content_sources.cpp
+  content_sources.h
   dir_diff.cpp
   dir_diff.h
   dir_diff_model.h
