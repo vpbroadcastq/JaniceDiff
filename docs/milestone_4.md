@@ -86,7 +86,7 @@ Run `git show HEAD:<path>` (or `:<path>` depending on desired semantics) to obta
 2) Manual test: delete a file in repo and select it; UI matches expectations.
 
 ## M4-T6: Replace diff pane placeholders with raw-content viewers
-**Objective:** Move from “labels” to real text display widgets.
+**Objective:** Move from "labels" to real text display widgets.
 ### Deliverables
 1) Diff pane widgets become read-only text views:
 2) Inline mode: one viewer capable of showing alternating blocks (for now, just show one side and annotate blocks minimally)

@@ -6,6 +6,7 @@
 #include <content_sources.h>
 #include <file_list_rows.h>
 #include <loaded_text_file.h>
+#include <render_model.h>
 #include <model.h>
 #include <repo_discovery.h>
 #include <repo_status.h>
@@ -379,16 +380,37 @@ void MainWindow::setup_central()
                     detail += "\n\nBinary/Unsupported (non-UTF-8)";
                 }
 
+                const bool isDeleted = (kind == bendiff::core::ChangeKind::Deleted);
+
                 if (m_diffLabelA && m_diffLabelB) {
                     if (m_paneMode == PaneMode::Inline) {
-                        const QString header = unsupported ? "Unsupported" : "Inline diff placeholder";
-                        m_diffLabelA->setText(QString("%1\n\n%2").arg(header).arg(detail));
+                        if (isDeleted && !unsupported) {
+                            const auto rm = bendiff::core::BuildDeletedFileRenderModel(leftLoaded, bendiff::core::DiffViewMode::Inline);
+                            QString body;
+                            for (const auto& line : rm.inlinePane.lines) {
+                                body += QString("- %1\n").arg(QString::fromStdString(line.text));
+                            }
+                            m_diffLabelA->setText(QString("Deleted file (inline)\n\n%1\n\n%2").arg(detail).arg(body));
+                        } else {
+                            const QString header = unsupported ? "Unsupported" : "Inline diff placeholder";
+                            m_diffLabelA->setText(QString("%1\n\n%2").arg(header).arg(detail));
+                        }
                         m_diffLabelB->setText(QString());
                     } else {
-                        const QString leftHeader = bendiff::core::IsUnsupportedText(leftLoaded) ? "Unsupported (left)" : "Side-by-side diff placeholder (left)";
-                        const QString rightHeader = bendiff::core::IsUnsupportedText(rightLoaded) ? "Unsupported (right)" : "Side-by-side diff placeholder (right)";
-                        m_diffLabelA->setText(QString("%1\n\n%2").arg(leftHeader).arg(detail));
-                        m_diffLabelB->setText(QString("%1\n\n%2").arg(rightHeader).arg(detail));
+                        if (isDeleted && !unsupported) {
+                            const auto rm = bendiff::core::BuildDeletedFileRenderModel(leftLoaded, bendiff::core::DiffViewMode::SideBySide);
+                            QString leftBody;
+                            for (const auto& line : rm.leftPane.lines) {
+                                leftBody += QString("- %1\n").arg(QString::fromStdString(line.text));
+                            }
+                            m_diffLabelA->setText(QString("Deleted file (left)\n\n%1\n\n%2").arg(detail).arg(leftBody));
+                            m_diffLabelB->setText(QString("Deleted file (right)\n\n%1\n\n%2").arg(detail).arg("(file deleted)"));
+                        } else {
+                            const QString leftHeader = bendiff::core::IsUnsupportedText(leftLoaded) ? "Unsupported (left)" : "Side-by-side diff placeholder (left)";
+                            const QString rightHeader = bendiff::core::IsUnsupportedText(rightLoaded) ? "Unsupported (right)" : "Side-by-side diff placeholder (right)";
+                            m_diffLabelA->setText(QString("%1\n\n%2").arg(leftHeader).arg(detail));
+                            m_diffLabelB->setText(QString("%1\n\n%2").arg(rightHeader).arg(detail));
+                        }
                     }
                 }
             } else if (m_invocation.mode == bendiff::AppMode::FolderDiffMode) {

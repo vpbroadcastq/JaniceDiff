@@ -12,6 +12,8 @@ add_library(bendiff_core STATIC
   file_list_rows.h
   loaded_text_file.cpp
   loaded_text_file.h
+  render_model.cpp
+  render_model.h
   model.cpp
   model.h
   porcelain.cpp
