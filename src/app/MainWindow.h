@@ -8,8 +8,8 @@
 
 class QAction;
 class QComboBox;
-class QLabel;
 class QListWidget;
+class QPlainTextEdit;
 class QSplitter;
 class QWidget;
 
@@ -63,6 +63,6 @@ private:
 
     QWidget* m_diffPaneA = nullptr;
     QWidget* m_diffPaneB = nullptr;
-    QLabel* m_diffLabelA = nullptr;
-    QLabel* m_diffLabelB = nullptr;
+    QPlainTextEdit* m_diffTextA = nullptr;
+    QPlainTextEdit* m_diffTextB = nullptr;
 };

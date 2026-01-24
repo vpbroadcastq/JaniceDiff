@@ -16,6 +16,7 @@
 #include <QComboBox>
 #include <QFrame>
 #include <QLabel>
+#include <QPlainTextEdit>
 #include <QFileDialog>
 #include <QListWidget>
 #include <QListWidgetItem>
@@ -27,10 +28,12 @@
 #include <QToolBar>
 #include <QVBoxLayout>
 #include <QWidget>
+#include <QFontDatabase>
+#include <QTextCursor>
 
 namespace {
 
-QWidget* make_placeholder_panel(const QString& title, QLabel** outLabel, QWidget* parent)
+QWidget* make_text_panel(const QString& title, QPlainTextEdit** outText, QWidget* parent)
 {
     auto* frame = new QFrame(parent);
     frame->setFrameShape(QFrame::StyledPanel);
@@ -39,17 +42,26 @@ QWidget* make_placeholder_panel(const QString& title, QLabel** outLabel, QWidget
 
     auto* layout = new QVBoxLayout(frame);
     layout->setContentsMargins(12, 12, 12, 12);
+    layout->setSpacing(8);
 
-    auto* label = new QLabel(title, frame);
-    label->setAlignment(Qt::AlignCenter);
-    label->setWordWrap(true);
-    if (outLabel) {
-        *outLabel = label;
+    auto* header = new QLabel(title, frame);
+    QFont hf = header->font();
+    hf.setBold(true);
+    header->setFont(hf);
+    header->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+
+    auto* text = new QPlainTextEdit(frame);
+    text->setReadOnly(true);
+    text->setLineWrapMode(QPlainTextEdit::NoWrap);
+    text->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+    text->setPlainText(title);
+
+    if (outText) {
+        *outText = text;
     }
 
-    layout->addStretch(1);
-    layout->addWidget(label);
-    layout->addStretch(1);
+    layout->addWidget(header);
+    layout->addWidget(text, 1);
 
     return frame;
 }
@@ -111,6 +123,48 @@ bool validate_dir_path(const std::filesystem::path& p)
         return false;
     }
     return true;
+}
+
+QString format_numbered_lines(const std::vector<std::string>& lines, const QString& marker)
+{
+    const int count = static_cast<int>(lines.size());
+    const int width = std::max(1, static_cast<int>(QString::number(std::max(1, count)).size()));
+
+    QString out;
+    out.reserve(count * 32);
+    for (int i = 0; i < count; ++i) {
+        out += QString("%1 %2 | %3\n")
+                   .arg(marker)
+                   .arg(i + 1, width)
+                   .arg(QString::fromStdString(lines[static_cast<std::size_t>(i)]));
+    }
+    return out;
+}
+
+QString render_loaded_text(const bendiff::core::LoadedTextFile& loaded, const QString& okMarker)
+{
+    using bendiff::core::LoadStatus;
+
+    switch (loaded.status) {
+    case LoadStatus::Ok:
+        return format_numbered_lines(loaded.lines, okMarker);
+    case LoadStatus::NotFound:
+        return "(missing)";
+    case LoadStatus::Unreadable:
+        return "(unreadable)";
+    case LoadStatus::NotUtf8:
+        return "Binary/Unsupported (non-UTF-8)";
+    }
+    return "(unknown load status)";
+}
+
+void set_text(QPlainTextEdit* edit, const QString& text)
+{
+    if (!edit) {
+        return;
+    }
+    edit->setPlainText(text);
+    edit->moveCursor(QTextCursor::Start);
 }
 
 } // namespace
@@ -290,8 +344,8 @@ void MainWindow::setup_central()
     }
 
     m_diffSplitter = new QSplitter(Qt::Horizontal, m_rootSplitter);
-    m_diffPaneA = make_placeholder_panel("Diff view (placeholder)", &m_diffLabelA, m_diffSplitter);
-    m_diffPaneB = make_placeholder_panel("Diff view (placeholder)", &m_diffLabelB, m_diffSplitter);
+    m_diffPaneA = make_text_panel("Diff view", &m_diffTextA, m_diffSplitter);
+    m_diffPaneB = make_text_panel("Diff view", &m_diffTextB, m_diffSplitter);
     m_diffSplitter->addWidget(m_diffPaneA);
     m_diffSplitter->addWidget(m_diffPaneB);
 
@@ -381,36 +435,65 @@ void MainWindow::setup_central()
                 }
 
                 const bool isDeleted = (kind == bendiff::core::ChangeKind::Deleted);
+                const bool isAdded = (kind == bendiff::core::ChangeKind::Added);
 
-                if (m_diffLabelA && m_diffLabelB) {
+                if (m_diffTextA && m_diffTextB) {
                     if (m_paneMode == PaneMode::Inline) {
-                        if (isDeleted && !unsupported) {
-                            const auto rm = bendiff::core::BuildDeletedFileRenderModel(leftLoaded, bendiff::core::DiffViewMode::Inline);
-                            QString body;
-                            for (const auto& line : rm.inlinePane.lines) {
-                                body += QString("- %1\n").arg(QString::fromStdString(line.text));
-                            }
-                            m_diffLabelA->setText(QString("Deleted file (inline)\n\n%1\n\n%2").arg(detail).arg(body));
-                        } else {
-                            const QString header = unsupported ? "Unsupported" : "Inline diff placeholder";
-                            m_diffLabelA->setText(QString("%1\n\n%2").arg(header).arg(detail));
+                        if (unsupported) {
+                            set_text(m_diffTextA, QString("Unsupported\n\n%1\n\n(left) %2\n\n(right) %3")
+                                                   .arg(detail)
+                                                   .arg(render_loaded_text(leftLoaded, " "))
+                                                   .arg(render_loaded_text(rightLoaded, " ")));
+                            set_text(m_diffTextB, QString());
+                            return;
                         }
-                        m_diffLabelB->setText(QString());
+
+                        if (isDeleted) {
+                            const QString body = format_numbered_lines(leftLoaded.lines, "-");
+                            set_text(m_diffTextA, QString("Deleted file (inline)\n\n%1\n\n%2").arg(detail).arg(body));
+                            set_text(m_diffTextB, QString());
+                            return;
+                        }
+
+                        if (isAdded) {
+                            const QString body = format_numbered_lines(rightLoaded.lines, "+");
+                            set_text(m_diffTextA, QString("Added file (inline)\n\n%1\n\n%2").arg(detail).arg(body));
+                            set_text(m_diffTextB, QString());
+                            return;
+                        }
+
+                        // Modified/renamed/unmerged: show both sides (no diff engine yet).
+                        const QString leftText = render_loaded_text(leftLoaded, " ");
+                        const QString rightText = render_loaded_text(rightLoaded, " ");
+                        set_text(m_diffTextA,
+                                 QString("Inline view (no diff yet)\n\n%1\n\n--- Committed (left) ---\n%2\n\n--- Working tree (right) ---\n%3")
+                                     .arg(detail)
+                                     .arg(leftText)
+                                     .arg(rightText));
+                        set_text(m_diffTextB, QString());
                     } else {
-                        if (isDeleted && !unsupported) {
-                            const auto rm = bendiff::core::BuildDeletedFileRenderModel(leftLoaded, bendiff::core::DiffViewMode::SideBySide);
-                            QString leftBody;
-                            for (const auto& line : rm.leftPane.lines) {
-                                leftBody += QString("- %1\n").arg(QString::fromStdString(line.text));
-                            }
-                            m_diffLabelA->setText(QString("Deleted file (left)\n\n%1\n\n%2").arg(detail).arg(leftBody));
-                            m_diffLabelB->setText(QString("Deleted file (right)\n\n%1\n\n%2").arg(detail).arg("(file deleted)"));
-                        } else {
-                            const QString leftHeader = bendiff::core::IsUnsupportedText(leftLoaded) ? "Unsupported (left)" : "Side-by-side diff placeholder (left)";
-                            const QString rightHeader = bendiff::core::IsUnsupportedText(rightLoaded) ? "Unsupported (right)" : "Side-by-side diff placeholder (right)";
-                            m_diffLabelA->setText(QString("%1\n\n%2").arg(leftHeader).arg(detail));
-                            m_diffLabelB->setText(QString("%1\n\n%2").arg(rightHeader).arg(detail));
+                        if (unsupported) {
+                            set_text(m_diffTextA, QString("Unsupported (left)\n\n%1\n\n%2").arg(detail).arg(render_loaded_text(leftLoaded, " ")));
+                            set_text(m_diffTextB, QString("Unsupported (right)\n\n%1\n\n%2").arg(detail).arg(render_loaded_text(rightLoaded, " ")));
+                            return;
                         }
+
+                        if (isDeleted) {
+                            set_text(m_diffTextA,
+                                     QString("Deleted file (left)\n\n%1\n\n%2").arg(detail).arg(format_numbered_lines(leftLoaded.lines, "-")));
+                            set_text(m_diffTextB, QString("Deleted file (right)\n\n%1\n\n(file deleted)").arg(detail));
+                            return;
+                        }
+
+                        if (isAdded) {
+                            set_text(m_diffTextA, QString("Added file (left)\n\n%1\n\n(no committed version)").arg(detail));
+                            set_text(m_diffTextB,
+                                     QString("Added file (right)\n\n%1\n\n%2").arg(detail).arg(format_numbered_lines(rightLoaded.lines, "+")));
+                            return;
+                        }
+
+                        set_text(m_diffTextA, QString("Committed (left)\n\n%1\n\n%2").arg(detail).arg(render_loaded_text(leftLoaded, " ")));
+                        set_text(m_diffTextB, QString("Working tree (right)\n\n%1\n\n%2").arg(detail).arg(render_loaded_text(rightLoaded, " ")));
                     }
                 }
             } else if (m_invocation.mode == bendiff::AppMode::FolderDiffMode) {
@@ -448,16 +531,28 @@ void MainWindow::setup_central()
                                            .arg(leftFull.isEmpty() ? QString("(missing)") : leftFull)
                                            .arg(rightFull.isEmpty() ? QString("(missing)") : rightFull);
 
-                if (m_diffLabelA && m_diffLabelB) {
+                if (m_diffTextA && m_diffTextB) {
                     if (m_paneMode == PaneMode::Inline) {
-                        const QString header = unsupported ? "Unsupported" : "Folder diff placeholder";
-                        m_diffLabelA->setText(QString("%1\n\n%2").arg(header).arg(detail));
-                        m_diffLabelB->setText(QString());
+                        if (unsupported) {
+                            set_text(m_diffTextA, QString("Unsupported\n\n%1\n\n(left) %2\n\n(right) %3")
+                                                   .arg(detail)
+                                                   .arg(render_loaded_text(leftLoaded, " "))
+                                                   .arg(render_loaded_text(rightLoaded, " ")));
+                            set_text(m_diffTextB, QString());
+                            return;
+                        }
+
+                        const QString leftText = render_loaded_text(leftLoaded, " ");
+                        const QString rightText = render_loaded_text(rightLoaded, " ");
+                        set_text(m_diffTextA,
+                                 QString("Inline view (no diff yet)\n\n%1\n\n--- Left ---\n%2\n\n--- Right ---\n%3")
+                                     .arg(detail)
+                                     .arg(leftText)
+                                     .arg(rightText));
+                        set_text(m_diffTextB, QString());
                     } else {
-                        const QString leftHeader = bendiff::core::IsUnsupportedText(leftLoaded) ? "Unsupported (left)" : "Folder diff placeholder (left)";
-                        const QString rightHeader = bendiff::core::IsUnsupportedText(rightLoaded) ? "Unsupported (right)" : "Folder diff placeholder (right)";
-                        m_diffLabelA->setText(QString("%1\n\n%2").arg(leftHeader).arg(detail));
-                        m_diffLabelB->setText(QString("%1\n\n%2").arg(rightHeader).arg(detail));
+                        set_text(m_diffTextA, QString("Left\n\n%1\n\n%2").arg(detail).arg(render_loaded_text(leftLoaded, " ")));
+                        set_text(m_diffTextB, QString("Right\n\n%1\n\n%2").arg(detail).arg(render_loaded_text(rightLoaded, " ")));
                     }
                 }
             } else {
@@ -506,15 +601,7 @@ void MainWindow::setup_central()
                                        .arg(leftFull.isEmpty() ? QString("(missing)") : leftFull)
                                        .arg(rightFull.isEmpty() ? QString("(missing)") : rightFull);
 
-            if (m_diffLabelA && m_diffLabelB) {
-                if (m_paneMode == PaneMode::Inline) {
-                    m_diffLabelA->setText(header + detail);
-                    m_diffLabelB->setText(QString());
-                } else {
-                    m_diffLabelA->setText(header + "\n\n(left pane)" + detail);
-                    m_diffLabelB->setText(header + "\n\n(right pane)" + detail);
-                }
-            }
+            // Selection already populates the content viewers; double-click is a no-op for now.
         });
     }
 }
@@ -713,13 +800,13 @@ void MainWindow::reset_placeholders()
         m_fileListWidget->blockSignals(false);
     }
 
-    if (m_diffLabelA && m_diffLabelB) {
+    if (m_diffTextA && m_diffTextB) {
         if (m_paneMode == PaneMode::Inline) {
-            m_diffLabelA->setText("Diff view (inline placeholder)");
-            m_diffLabelB->setText("Diff view (placeholder)");
+            set_text(m_diffTextA, "Inline view (select a file)");
+            set_text(m_diffTextB, QString());
         } else {
-            m_diffLabelA->setText("Diff view (left placeholder)");
-            m_diffLabelB->setText("Diff view (right placeholder)");
+            set_text(m_diffTextA, "Left view (select a file)");
+            set_text(m_diffTextB, "Right view (select a file)");
         }
     }
 }
@@ -741,24 +828,24 @@ void MainWindow::set_pane_mode(PaneMode mode)
         m_diffPaneB->setVisible(showSecondPane);
     }
 
-    if (m_diffLabelA && m_diffLabelB) {
-        if (mode == PaneMode::Inline) {
-            m_diffLabelA->setText("Diff view (inline placeholder)");
-            m_diffLabelB->setText("Diff view (placeholder)");
-        } else {
-            m_diffLabelA->setText("Diff view (left placeholder)");
-            m_diffLabelB->setText("Diff view (right placeholder)");
-        }
+    // Force a re-render for the currently-selected item, since the view mode
+    // affects how we populate the panes.
+    if (m_fileListWidget && m_fileListWidget->currentRow() >= 0) {
+        const int row = m_fileListWidget->currentRow();
+        m_fileListWidget->blockSignals(true);
+        m_fileListWidget->setCurrentRow(-1);
+        m_fileListWidget->blockSignals(false);
+        m_fileListWidget->setCurrentRow(row);
+    }
+
+    // If nothing is selected, ensure the viewers reflect the new topology.
+    if (!m_fileListWidget || m_fileListWidget->currentRow() < 0) {
+        reset_placeholders();
     }
 
     if (m_rootSplitter) {
         // Keep the file list pane visible; just adjust the distribution a bit.
         m_rootSplitter->setSizes({240, 760});
-    }
-
-    // If nothing is selected, ensure placeholders reflect the new topology.
-    if (!m_fileListWidget || m_fileListWidget->currentRow() < 0) {
-        reset_placeholders();
     }
 
     update_status_bar();
