@@ -7,16 +7,18 @@
 #include <file_list_rows.h>
 #include <loaded_text_file.h>
 #include <render_model.h>
+#include <render/diff_render_model.h>
 #include <model.h>
 #include <repo_discovery.h>
 #include <repo_status.h>
+
+#include "widgets/DiffTextView.h"
 
 #include <QAction>
 #include <QActionGroup>
 #include <QComboBox>
 #include <QFrame>
 #include <QLabel>
-#include <QPlainTextEdit>
 #include <QFileDialog>
 #include <QListWidget>
 #include <QListWidgetItem>
@@ -33,7 +35,7 @@
 
 namespace {
 
-QWidget* make_text_panel(const QString& title, QPlainTextEdit** outText, QWidget* parent)
+QWidget* make_text_panel(const QString& title, DiffTextView** outText, QWidget* parent)
 {
     auto* frame = new QFrame(parent);
     frame->setFrameShape(QFrame::StyledPanel);
@@ -50,11 +52,8 @@ QWidget* make_text_panel(const QString& title, QPlainTextEdit** outText, QWidget
     header->setFont(hf);
     header->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
 
-    auto* text = new QPlainTextEdit(frame);
-    text->setReadOnly(true);
-    text->setLineWrapMode(QPlainTextEdit::NoWrap);
-    text->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
-    text->setPlainText(title);
+    auto* text = new DiffTextView(frame);
+    text->setMessage(title);
 
     if (outText) {
         *outText = text;
@@ -158,13 +157,50 @@ QString render_loaded_text(const bendiff::core::LoadedTextFile& loaded, const QS
     return "(unknown load status)";
 }
 
-void set_text(QPlainTextEdit* edit, const QString& text)
+void set_text(DiffTextView* edit, const QString& text)
 {
     if (!edit) {
         return;
     }
-    edit->setPlainText(text);
-    edit->moveCursor(QTextCursor::Start);
+    edit->setMessage(text);
+}
+
+bendiff::core::diff::WhitespaceMode to_ws_mode(int comboIndex)
+{
+    using bendiff::core::diff::WhitespaceMode;
+    switch (comboIndex) {
+        case 1:
+            return WhitespaceMode::IgnoreTrailing;
+        case 2:
+            return WhitespaceMode::IgnoreAll;
+        case 0:
+        default:
+            return WhitespaceMode::Exact;
+    }
+}
+
+void set_render_doc_inline(DiffTextView* view, const bendiff::core::render::RenderDocument& doc)
+{
+    if (!view) {
+        return;
+    }
+    view->setRenderDocument(doc, DiffTextView::Mode::Inline);
+}
+
+void set_render_doc_sbs_left(DiffTextView* view, const bendiff::core::render::RenderDocument& doc)
+{
+    if (!view) {
+        return;
+    }
+    view->setRenderDocument(doc, DiffTextView::Mode::SideBySideLeft);
+}
+
+void set_render_doc_sbs_right(DiffTextView* view, const bendiff::core::render::RenderDocument& doc)
+{
+    if (!view) {
+        return;
+    }
+    view->setRenderDocument(doc, DiffTextView::Mode::SideBySideRight);
 }
 
 } // namespace
@@ -434,9 +470,6 @@ void MainWindow::setup_central()
                     detail += "\n\nBinary/Unsupported (non-UTF-8)";
                 }
 
-                const bool isDeleted = (kind == bendiff::core::ChangeKind::Deleted);
-                const bool isAdded = (kind == bendiff::core::ChangeKind::Added);
-
                 if (m_diffTextA && m_diffTextB) {
                     if (m_paneMode == PaneMode::Inline) {
                         if (unsupported) {
@@ -448,28 +481,11 @@ void MainWindow::setup_central()
                             return;
                         }
 
-                        if (isDeleted) {
-                            const QString body = format_numbered_lines(leftLoaded.lines, "-");
-                            set_text(m_diffTextA, QString("Deleted file (inline)\n\n%1\n\n%2").arg(detail).arg(body));
-                            set_text(m_diffTextB, QString());
-                            return;
-                        }
+                        const auto mode = to_ws_mode(m_whitespaceCombo ? m_whitespaceCombo->currentIndex() : 0);
+                        const auto d = bendiff::core::diff::DiffLines(leftLoaded.lines, rightLoaded.lines, mode);
+                        const auto doc = bendiff::core::render::BuildInlineRender(leftLoaded, rightLoaded, d);
 
-                        if (isAdded) {
-                            const QString body = format_numbered_lines(rightLoaded.lines, "+");
-                            set_text(m_diffTextA, QString("Added file (inline)\n\n%1\n\n%2").arg(detail).arg(body));
-                            set_text(m_diffTextB, QString());
-                            return;
-                        }
-
-                        // Modified/renamed/unmerged: show both sides (no diff engine yet).
-                        const QString leftText = render_loaded_text(leftLoaded, " ");
-                        const QString rightText = render_loaded_text(rightLoaded, " ");
-                        set_text(m_diffTextA,
-                                 QString("Inline view (no diff yet)\n\n%1\n\n--- Committed (left) ---\n%2\n\n--- Working tree (right) ---\n%3")
-                                     .arg(detail)
-                                     .arg(leftText)
-                                     .arg(rightText));
+                        set_render_doc_inline(m_diffTextA, doc);
                         set_text(m_diffTextB, QString());
                     } else {
                         if (unsupported) {
@@ -478,22 +494,12 @@ void MainWindow::setup_central()
                             return;
                         }
 
-                        if (isDeleted) {
-                            set_text(m_diffTextA,
-                                     QString("Deleted file (left)\n\n%1\n\n%2").arg(detail).arg(format_numbered_lines(leftLoaded.lines, "-")));
-                            set_text(m_diffTextB, QString("Deleted file (right)\n\n%1\n\n(file deleted)").arg(detail));
-                            return;
-                        }
+                        const auto mode = to_ws_mode(m_whitespaceCombo ? m_whitespaceCombo->currentIndex() : 0);
+                        const auto d = bendiff::core::diff::DiffLines(leftLoaded.lines, rightLoaded.lines, mode);
+                        const auto doc = bendiff::core::render::BuildSideBySideRender(leftLoaded, rightLoaded, d);
 
-                        if (isAdded) {
-                            set_text(m_diffTextA, QString("Added file (left)\n\n%1\n\n(no committed version)").arg(detail));
-                            set_text(m_diffTextB,
-                                     QString("Added file (right)\n\n%1\n\n%2").arg(detail).arg(format_numbered_lines(rightLoaded.lines, "+")));
-                            return;
-                        }
-
-                        set_text(m_diffTextA, QString("Committed (left)\n\n%1\n\n%2").arg(detail).arg(render_loaded_text(leftLoaded, " ")));
-                        set_text(m_diffTextB, QString("Working tree (right)\n\n%1\n\n%2").arg(detail).arg(render_loaded_text(rightLoaded, " ")));
+                        set_render_doc_sbs_left(m_diffTextA, doc);
+                        set_render_doc_sbs_right(m_diffTextB, doc);
                     }
                 }
             } else if (m_invocation.mode == bendiff::AppMode::FolderDiffMode) {
@@ -542,17 +548,23 @@ void MainWindow::setup_central()
                             return;
                         }
 
-                        const QString leftText = render_loaded_text(leftLoaded, " ");
-                        const QString rightText = render_loaded_text(rightLoaded, " ");
-                        set_text(m_diffTextA,
-                                 QString("Inline view (no diff yet)\n\n%1\n\n--- Left ---\n%2\n\n--- Right ---\n%3")
-                                     .arg(detail)
-                                     .arg(leftText)
-                                     .arg(rightText));
+                        const auto mode = to_ws_mode(m_whitespaceCombo ? m_whitespaceCombo->currentIndex() : 0);
+                        const auto d = bendiff::core::diff::DiffLines(leftLoaded.lines, rightLoaded.lines, mode);
+                        const auto doc = bendiff::core::render::BuildInlineRender(leftLoaded, rightLoaded, d);
+                        set_render_doc_inline(m_diffTextA, doc);
                         set_text(m_diffTextB, QString());
                     } else {
-                        set_text(m_diffTextA, QString("Left\n\n%1\n\n%2").arg(detail).arg(render_loaded_text(leftLoaded, " ")));
-                        set_text(m_diffTextB, QString("Right\n\n%1\n\n%2").arg(detail).arg(render_loaded_text(rightLoaded, " ")));
+                        if (unsupported) {
+                            set_text(m_diffTextA, QString("Unsupported (left)\n\n%1\n\n%2").arg(detail).arg(render_loaded_text(leftLoaded, " ")));
+                            set_text(m_diffTextB, QString("Unsupported (right)\n\n%1\n\n%2").arg(detail).arg(render_loaded_text(rightLoaded, " ")));
+                            return;
+                        }
+
+                        const auto mode = to_ws_mode(m_whitespaceCombo ? m_whitespaceCombo->currentIndex() : 0);
+                        const auto d = bendiff::core::diff::DiffLines(leftLoaded.lines, rightLoaded.lines, mode);
+                        const auto doc = bendiff::core::render::BuildSideBySideRender(leftLoaded, rightLoaded, d);
+                        set_render_doc_sbs_left(m_diffTextA, doc);
+                        set_render_doc_sbs_right(m_diffTextB, doc);
                     }
                 }
             } else {

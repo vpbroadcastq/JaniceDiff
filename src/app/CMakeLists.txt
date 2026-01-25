@@ -2,6 +2,8 @@ add_executable(bendiff
     main.cpp
     MainWindow.cpp
     MainWindow.h
+    widgets/DiffTextView.cpp
+    widgets/DiffTextView.h
 )
 
 # Prefer a clear, actionable error over CMake's default find_package output.

@@ -9,9 +9,10 @@
 class QAction;
 class QComboBox;
 class QListWidget;
-class QPlainTextEdit;
 class QSplitter;
 class QWidget;
+
+class DiffTextView;
 
 class MainWindow final : public QMainWindow
 {
@@ -63,6 +64,6 @@ private:
 
     QWidget* m_diffPaneA = nullptr;
     QWidget* m_diffPaneB = nullptr;
-    QPlainTextEdit* m_diffTextA = nullptr;
-    QPlainTextEdit* m_diffTextB = nullptr;
+    DiffTextView* m_diffTextA = nullptr;
+    DiffTextView* m_diffTextB = nullptr;
 };
