@@ -27,6 +27,7 @@ add_executable(bendiff_tests
   test_diff_myers.cpp
   test_diff_hunks.cpp
   test_diff_classification.cpp
+  test_diff_golden_fixtures.cpp
   test_dir_diff_model.cpp
   test_dir_walk.cpp
   test_file_compare.cpp

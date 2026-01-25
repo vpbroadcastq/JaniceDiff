@@ -1,0 +1,7 @@
+MODE IgnoreTrailing
+LEFT 3 RIGHT 3
+HUNKS 0
+ALIGNED 3
+  EQ L 0 R 0
+  EQ L 1 R 1
+  EQ L 2 R 2

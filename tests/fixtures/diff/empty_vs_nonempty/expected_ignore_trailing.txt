@@ -1,0 +1,7 @@
+MODE IgnoreTrailing
+LEFT 0 RIGHT 1
+HUNKS 1
+HUNK 0 L 0 0 R 0 1
+  INS L - R 0
+ALIGNED 1
+  INS L - R 0

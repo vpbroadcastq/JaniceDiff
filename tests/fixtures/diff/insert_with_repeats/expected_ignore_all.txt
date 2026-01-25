@@ -1,0 +1,12 @@
+MODE IgnoreAll
+LEFT 5 RIGHT 6
+HUNKS 1
+HUNK 0 L 2 0 R 2 1
+  INS L - R 2
+ALIGNED 6
+  EQ L 0 R 0
+  EQ L 1 R 1
+  INS L - R 2
+  EQ L 2 R 3
+  EQ L 3 R 4
+  EQ L 4 R 5
