@@ -50,6 +50,47 @@ RenderDocument BuildSideBySideRender(const LoadedTextFile& left,
 {
     RenderDocument doc;
 
+    // Deleted/added file semantics:
+    // - If only left is loaded: treat as all-Delete.
+    // - If only right is loaded: treat as all-Insert.
+    if (left.status == LoadStatus::Ok && right.status != LoadStatus::Ok) {
+        RenderBlock block;
+        block.side = RenderBlockSide::Both;
+        block.lines.reserve(left.lines.size());
+
+        for (std::size_t i = 0; i < left.lines.size(); ++i) {
+            RenderLine line;
+            line.op = diff::LineOp::Delete;
+            line.leftLine = i + 1;
+            line.rightLine.reset();
+            line.leftText = left.lines[i];
+            line.rightText.clear();
+            block.lines.push_back(std::move(line));
+        }
+
+        doc.blocks.push_back(std::move(block));
+        return doc;
+    }
+
+    if (right.status == LoadStatus::Ok && left.status != LoadStatus::Ok) {
+        RenderBlock block;
+        block.side = RenderBlockSide::Both;
+        block.lines.reserve(right.lines.size());
+
+        for (std::size_t i = 0; i < right.lines.size(); ++i) {
+            RenderLine line;
+            line.op = diff::LineOp::Insert;
+            line.leftLine.reset();
+            line.rightLine = i + 1;
+            line.leftText.clear();
+            line.rightText = right.lines[i];
+            block.lines.push_back(std::move(line));
+        }
+
+        doc.blocks.push_back(std::move(block));
+        return doc;
+    }
+
     if (left.status != LoadStatus::Ok || right.status != LoadStatus::Ok) {
         return doc;
     }
@@ -73,6 +114,47 @@ RenderDocument BuildInlineRender(const LoadedTextFile& left,
                                 const diff::DiffResult& d)
 {
     RenderDocument doc;
+
+    // Deleted/added file semantics for inline mode:
+    // - If only left is loaded: one big Left (deletion) block.
+    // - If only right is loaded: one big Right (insertion) block.
+    if (left.status == LoadStatus::Ok && right.status != LoadStatus::Ok) {
+        RenderBlock block;
+        block.side = RenderBlockSide::Left;
+        block.lines.reserve(left.lines.size());
+
+        for (std::size_t i = 0; i < left.lines.size(); ++i) {
+            RenderLine line;
+            line.op = diff::LineOp::Delete;
+            line.leftLine = i + 1;
+            line.rightLine.reset();
+            line.leftText = left.lines[i];
+            line.rightText.clear();
+            block.lines.push_back(std::move(line));
+        }
+
+        doc.blocks.push_back(std::move(block));
+        return doc;
+    }
+
+    if (right.status == LoadStatus::Ok && left.status != LoadStatus::Ok) {
+        RenderBlock block;
+        block.side = RenderBlockSide::Right;
+        block.lines.reserve(right.lines.size());
+
+        for (std::size_t i = 0; i < right.lines.size(); ++i) {
+            RenderLine line;
+            line.op = diff::LineOp::Insert;
+            line.leftLine.reset();
+            line.rightLine = i + 1;
+            line.leftText.clear();
+            line.rightText = right.lines[i];
+            block.lines.push_back(std::move(line));
+        }
+
+        doc.blocks.push_back(std::move(block));
+        return doc;
+    }
 
     if (left.status != LoadStatus::Ok || right.status != LoadStatus::Ok) {
         return doc;

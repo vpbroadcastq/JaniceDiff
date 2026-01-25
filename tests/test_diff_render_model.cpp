@@ -122,4 +122,54 @@ TEST(DiffRenderModel, InlineReplaceProducesLeftBlockThenRightBlock)
     EXPECT_EQ(doc.blocks[2].lines[0].rightText, "B");
 }
 
+TEST(DiffRenderModel, InlineDeletedFileIsOneBigLeftBlock)
+{
+    bendiff::core::LoadedTextFile left;
+    left.status = bendiff::core::LoadStatus::Ok;
+    left.lines = {"a", "b"};
+
+    bendiff::core::LoadedTextFile right;
+    right.status = bendiff::core::LoadStatus::NotFound;
+
+    // DiffResult isn't used for single-sided inline rendering; pass a default.
+    bendiff::core::diff::DiffResult d;
+
+    const auto doc = BuildInlineRender(left, right, d);
+    ASSERT_EQ(doc.blocks.size(), 1u);
+    EXPECT_EQ(doc.blocks[0].side, RenderBlockSide::Left);
+    ASSERT_EQ(doc.blocks[0].lines.size(), 2u);
+
+    EXPECT_EQ(doc.blocks[0].lines[0].op, bendiff::core::diff::LineOp::Delete);
+    EXPECT_EQ(doc.blocks[0].lines[0].leftLine, 1u);
+    EXPECT_FALSE(doc.blocks[0].lines[0].rightLine.has_value());
+    EXPECT_EQ(doc.blocks[0].lines[0].leftText, "a");
+
+    EXPECT_EQ(doc.blocks[0].lines[1].op, bendiff::core::diff::LineOp::Delete);
+    EXPECT_EQ(doc.blocks[0].lines[1].leftLine, 2u);
+    EXPECT_FALSE(doc.blocks[0].lines[1].rightLine.has_value());
+    EXPECT_EQ(doc.blocks[0].lines[1].leftText, "b");
+}
+
+TEST(DiffRenderModel, InlineAddedFileIsOneBigRightBlock)
+{
+    bendiff::core::LoadedTextFile left;
+    left.status = bendiff::core::LoadStatus::NotFound;
+
+    bendiff::core::LoadedTextFile right;
+    right.status = bendiff::core::LoadStatus::Ok;
+    right.lines = {"x"};
+
+    bendiff::core::diff::DiffResult d;
+
+    const auto doc = BuildInlineRender(left, right, d);
+    ASSERT_EQ(doc.blocks.size(), 1u);
+    EXPECT_EQ(doc.blocks[0].side, RenderBlockSide::Right);
+    ASSERT_EQ(doc.blocks[0].lines.size(), 1u);
+
+    EXPECT_EQ(doc.blocks[0].lines[0].op, bendiff::core::diff::LineOp::Insert);
+    EXPECT_FALSE(doc.blocks[0].lines[0].leftLine.has_value());
+    EXPECT_EQ(doc.blocks[0].lines[0].rightLine, 1u);
+    EXPECT_EQ(doc.blocks[0].lines[0].rightText, "x");
+}
+
 } // namespace bendiff::core::render

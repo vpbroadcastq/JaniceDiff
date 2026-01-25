@@ -45,4 +45,7 @@ RenderDocument BuildInlineRender(const LoadedTextFile& left,
                                 const LoadedTextFile& right,
                                 const diff::DiffResult& d);
 
+// Inline policy (v1): Equal lines are emitted as neutral "Both" blocks.
+// Delete lines are emitted as "Left" blocks; Insert lines as "Right" blocks.
+
 } // namespace bendiff::core::render
