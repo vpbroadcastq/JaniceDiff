@@ -3,6 +3,8 @@ add_library(bendiff_core STATIC
   content_sources.h
   diff/diff.cpp
   diff/diff.h
+  diff/whitespace.cpp
+  diff/whitespace.h
   dir_diff.cpp
   dir_diff.h
   dir_diff_model.h
