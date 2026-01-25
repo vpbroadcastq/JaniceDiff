@@ -20,7 +20,7 @@
 1) Unit tests can build render docs for simple diffs and verify structure (counts, op types, alternating blocks in inline mode).
 
 ## M6-T2: Side-by-side view: map diff result to aligned rows
-**Objective:** Implement the standard “two column diff table” representation that is easy to paint.
+**Objective:** Implement the standard "two column diff table" representation that is easy to paint.
 ### Deliverables
 1) Build aligned rows such that each visual row represents:
     * (left line number + left text) and (right line number + right text)
@@ -34,12 +34,12 @@
 ### Acceptance criteria
 1) For a known input pair, aligned row output matches expected sequence (can be tested without Qt).
 
-## M6-T3: Inline view: build “alternating left/right blocks”
+## M6-T3: Inline view: build "alternating left/right blocks"
 **Objective:** Implement your specific inline requirement: diff is displayed with alternating left/right blocks. 
 ### Deliverables
 1) Render model builder that produces a sequence of blocks:
-    * When encountering deletions → emit a “left block”
-    * When encountering insertions → emit a “right block”
+    * When encountering deletions → emit a "left block"
+    * When encountering insertions → emit a "right block"
     * Equal lines may either:
         * be included as neutral blocks, or
         * be included within whichever block is active (choose one policy and keep consistent)
