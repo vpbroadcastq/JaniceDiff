@@ -108,7 +108,7 @@
 **Objective:** Ensure the algorithm does not explode on moderately sized inputs.
 ### Deliverables
 1) A unit test that constructs two vectors of, say, 5k–20k lines with small edits and asserts it completes within a reasonable time budget (not strict; just ensures it finishes).
-2) If time-based tests are flaky, use a “doesn’t OOM / doesn’t hang” style test.
+2) If time-based tests are flaky, use a "doesn’t OOM / doesn’t hang" style test.
 ### Constraints
 1) No strict timing assertions that will fail on slow CI (you’ve excluded CI for now, but still keep it stable).
 ### Acceptance criteria
