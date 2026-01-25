@@ -7,6 +7,8 @@ add_library(bendiff_core STATIC
   diff/alignment.h
   diff/whitespace.cpp
   diff/whitespace.h
+  render/diff_render_model.cpp
+  render/diff_render_model.h
   dir_diff.cpp
   dir_diff.h
   dir_diff_model.h
