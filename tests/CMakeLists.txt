@@ -24,6 +24,7 @@ add_executable(bendiff_tests
   test_render_model.cpp
   test_diff_api.cpp
   test_diff_whitespace.cpp
+  test_diff_myers.cpp
   test_dir_diff_model.cpp
   test_dir_walk.cpp
   test_file_compare.cpp
