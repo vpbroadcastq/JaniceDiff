@@ -157,6 +157,68 @@ done:
     return reversed;
 }
 
+std::vector<DiffHunk> BuildEditHunksZeroContext(const std::vector<DiffLine>& ops)
+{
+    std::vector<DiffHunk> hunks;
+
+    std::size_t leftPos = 0;
+    std::size_t rightPos = 0;
+
+    auto advance_positions = [&](const DiffLine& dl) {
+        switch (dl.op) {
+        case LineOp::Equal:
+            ++leftPos;
+            ++rightPos;
+            break;
+        case LineOp::Delete:
+            ++leftPos;
+            break;
+        case LineOp::Insert:
+            ++rightPos;
+            break;
+        }
+    };
+
+    DiffHunk current;
+    bool inHunk = false;
+
+    auto flush = [&]() {
+        if (!inHunk) {
+            return;
+        }
+        hunks.push_back(std::move(current));
+        current = DiffHunk{};
+        inHunk = false;
+    };
+
+    for (const auto& dl : ops) {
+        if (dl.op == LineOp::Equal) {
+            flush();
+            advance_positions(dl);
+            continue;
+        }
+
+        if (!inHunk) {
+            inHunk = true;
+            current.leftStart = leftPos;
+            current.rightStart = rightPos;
+            current.leftCount = 0;
+            current.rightCount = 0;
+        }
+
+        current.lines.push_back(dl);
+        if (dl.op == LineOp::Delete) {
+            ++current.leftCount;
+        } else if (dl.op == LineOp::Insert) {
+            ++current.rightCount;
+        }
+        advance_positions(dl);
+    }
+
+    flush();
+    return hunks;
+}
+
 } // namespace
 
 DiffResult DiffLines(std::span<const std::string> left,
@@ -173,14 +235,8 @@ DiffResult DiffLines(std::span<const std::string> left,
     auto ops = MyersDiffOps(leftKeys, rightKeys);
 
     // M5-T3: produce a deterministic edit script.
-    // We store it as a single hunk for now; later tasks will split into hunks.
-    DiffHunk h;
-    h.leftStart = 0;
-    h.leftCount = left.size();
-    h.rightStart = 0;
-    h.rightCount = right.size();
-    h.lines = std::move(ops);
-    r.hunks.push_back(std::move(h));
+    // M5-T4: split into contiguous edit hunks (no context in v1).
+    r.hunks = BuildEditHunksZeroContext(ops);
     return r;
 }
 

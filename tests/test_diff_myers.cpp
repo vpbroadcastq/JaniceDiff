@@ -46,7 +46,7 @@ TEST(MyersDiff, EqualInputsAreAllEquals)
     const std::vector<std::string> right = {"a", "b"};
 
     const auto r = DiffLines(left, right, WhitespaceMode::Exact);
-    EXPECT_EQ(OpsOnly(r), (std::vector<LineOp>{LineOp::Equal, LineOp::Equal}));
+    EXPECT_TRUE(r.hunks.empty());
 }
 
 TEST(MyersDiff, SingleReplaceBecomesDeleteInsert)
@@ -55,7 +55,7 @@ TEST(MyersDiff, SingleReplaceBecomesDeleteInsert)
     const std::vector<std::string> right = {"a", "x", "c"};
 
     const auto r = DiffLines(left, right, WhitespaceMode::Exact);
-    EXPECT_EQ(OpsOnly(r), (std::vector<LineOp>{LineOp::Equal, LineOp::Delete, LineOp::Insert, LineOp::Equal}));
+    EXPECT_EQ(OpsOnly(r), (std::vector<LineOp>{LineOp::Delete, LineOp::Insert}));
 }
 
 TEST(MyersDiff, RepeatedLinesDeterministicAlignment)
@@ -64,7 +64,7 @@ TEST(MyersDiff, RepeatedLinesDeterministicAlignment)
     const std::vector<std::string> right = {"a", "a"};
 
     const auto r = DiffLines(left, right, WhitespaceMode::Exact);
-    EXPECT_EQ(OpsOnly(r), (std::vector<LineOp>{LineOp::Equal, LineOp::Delete, LineOp::Equal}));
+    EXPECT_EQ(OpsOnly(r), (std::vector<LineOp>{LineOp::Delete}));
 }
 
 TEST(MyersDiff, WhitespaceModeAffectsEquality)
@@ -76,7 +76,7 @@ TEST(MyersDiff, WhitespaceModeAffectsEquality)
     EXPECT_EQ(OpsOnly(exact), (std::vector<LineOp>{LineOp::Delete, LineOp::Insert}));
 
     const auto ignoreTrailing = DiffLines(left, right, WhitespaceMode::IgnoreTrailing);
-    EXPECT_EQ(OpsOnly(ignoreTrailing), (std::vector<LineOp>{LineOp::Equal}));
+    EXPECT_TRUE(ignoreTrailing.hunks.empty());
 }
 
 } // namespace bendiff::core::diff

@@ -59,7 +59,7 @@
 ## M5-T4: Hunk generation from edit script
 **Objective:** Convert raw op stream into "hunks" suitable for UI navigation and highlighting.
 ### Deliverables
-1) A hunk builder that groups adjacent non-equal edits into a DiffHunk and includes some context lines, or not.
+1) A hunk builder that groups adjacent non-equal edits into a `DiffHunk` and includes some context lines, or not.
 2) Important decision (make explicit in code)
     * For v1, no context lines required in the data model; UI can display all lines.
     * Still, hunks should represent contiguous edit regions:
