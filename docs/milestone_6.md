@@ -78,7 +78,7 @@ For v1 and AI-assisted development, (A) is usually faster, but line-based backgr
     * Left viewer shows left rows with left line numbers
     * Right viewer shows right rows with right line numbers
     * Insertions show blank left lines; deletions show blank right lines
-2) Ensure the “green vs red” semantics remain correct:
+2) Ensure the "green vs red" semantics remain correct:
     * Added lines: green on the right side (insert)
     * Deleted lines: red on the left side (delete)
 ### Acceptance criteria
