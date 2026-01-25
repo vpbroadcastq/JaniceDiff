@@ -71,8 +71,8 @@
     * A single isolated insertion produces exactly one hunk
     * Two separated change regions produce two hunks (when separated by ≥1 Equal line, depending on context policy)
 
-## M5-T5: Provide “per-line classification” mapping convenience
-**Objective:** Your spec calls for “per-line classification.” Make consumption easy for rendering code.
+## M5-T5: Provide "per-line classification" mapping convenience
+**Objective:** Your spec calls for "per-line classification." Make consumption easy for rendering code.
 ### Deliverables
 1) Convenience APIs:
     * `std::vector<LineOp> LeftLineClassification(const DiffResult&)` sized `leftLineCount`
