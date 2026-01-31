@@ -126,7 +126,7 @@ For v1 and AI-assisted development, (A) is usually faster, but line-based backgr
 1) Only applies to text files; binary stays unsupported
 2) No threading required yet (may be added later if needed)
 ### Acceptance criteria
-1) A file differing only by trailing whitespace becomes “equal” when mode is IgnoreTrailing.
+1) A file differing only by trailing whitespace becomes "equal" when mode is `IgnoreTrailing`.
 2) View updates without restarting app.
 
 ## M6-T9: Regression tests for render model builders (Qt-free)

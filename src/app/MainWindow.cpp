@@ -339,8 +339,23 @@ void MainWindow::setup_toolbar()
     connect(m_actionNextChange, &QAction::triggered, this, [] { log_not_implemented("Next Change"); });
     connect(m_actionPrevChange, &QAction::triggered, this, [] { log_not_implemented("Previous Change"); });
 
-    connect(m_whitespaceCombo, &QComboBox::currentTextChanged, this, [](const QString& text) {
+    connect(m_whitespaceCombo, &QComboBox::currentTextChanged, this, [this](const QString& text) {
         bendiff::logging::info(std::string("Whitespace mode set to: ") + text.toStdString());
+
+        // M6-T8: changing whitespace mode must re-diff and re-render.
+        // We do this by re-triggering the current selection handler.
+        if (!m_fileListWidget) {
+            return;
+        }
+        const int row = m_fileListWidget->currentRow();
+        if (row < 0) {
+            return;
+        }
+
+        m_fileListWidget->blockSignals(true);
+        m_fileListWidget->setCurrentRow(-1);
+        m_fileListWidget->blockSignals(false);
+        m_fileListWidget->setCurrentRow(row);
     });
 
     connect(m_actionInlineMode, &QAction::triggered, this, [this] {
