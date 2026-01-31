@@ -150,6 +150,9 @@ void DiffTextView::setRenderDocument(const bendiff::core::render::RenderDocument
                     content = QString::fromStdString(line.rightText);
                     break;
                 case Mode::Inline:
+                    // Inline policy (v1): show only one side at a time.
+                    // - For Right blocks (inserts), display right line numbers/text.
+                    // - For Left blocks (deletes) and neutral Both blocks (equal lines), display left line numbers/text.
                     if (block.side == bendiff::core::render::RenderBlockSide::Right) {
                         lineNum = formatLineNumber(line.rightLine, width);
                         content = QString::fromStdString(line.rightText);

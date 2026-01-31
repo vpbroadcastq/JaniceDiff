@@ -97,7 +97,7 @@ For v1 and AI-assisted development, (A) is usually faster, but line-based backgr
     * For neutral/equal lines (if shown): you may show both or one; document the choice in code comments
 ### Acceptance criteria
 1) Manual test shows alternating blocks for typical change patterns.
-2) Deleted file appears as “all deleted” in inline mode per spec. 
+2) Deleted file appears as "all deleted" in inline mode per spec. 
 
 ## M6-T7: Scroll synchronization in side-by-side mode
 **Objective:** Synchronize scrolling between left and right panes. 
