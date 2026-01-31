@@ -32,6 +32,7 @@
 #include <QWidget>
 #include <QFontDatabase>
 #include <QTextCursor>
+#include <QScrollBar>
 
 namespace {
 
@@ -399,6 +400,38 @@ void MainWindow::setup_central()
     m_rootSplitter->setSizes({240, 760});
 
     setCentralWidget(m_rootSplitter);
+
+    // M6-T7: keep side-by-side panes vertically scroll-synchronized.
+    if (m_diffTextA && m_diffTextB) {
+        auto* leftBar = m_diffTextA->verticalScrollBar();
+        auto* rightBar = m_diffTextB->verticalScrollBar();
+
+        if (leftBar && rightBar) {
+            connect(leftBar, &QScrollBar::valueChanged, this, [this, rightBar](int value) {
+                if (m_paneMode != PaneMode::SideBySide) {
+                    return;
+                }
+                if (m_syncingDiffScroll) {
+                    return;
+                }
+                m_syncingDiffScroll = true;
+                rightBar->setValue(value);
+                m_syncingDiffScroll = false;
+            });
+
+            connect(rightBar, &QScrollBar::valueChanged, this, [this, leftBar](int value) {
+                if (m_paneMode != PaneMode::SideBySide) {
+                    return;
+                }
+                if (m_syncingDiffScroll) {
+                    return;
+                }
+                m_syncingDiffScroll = true;
+                leftBar->setValue(value);
+                m_syncingDiffScroll = false;
+            });
+        }
+    }
 
     // Selection wiring (M1-T6): selecting a file updates diff placeholder labels.
     // Selection wiring (M1-T6/M2-T7): selecting a file updates diff placeholder labels.

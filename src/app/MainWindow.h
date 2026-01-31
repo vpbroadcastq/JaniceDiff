@@ -66,4 +66,6 @@ private:
     QWidget* m_diffPaneB = nullptr;
     DiffTextView* m_diffTextA = nullptr;
     DiffTextView* m_diffTextB = nullptr;
+
+    bool m_syncingDiffScroll = false;
 };
