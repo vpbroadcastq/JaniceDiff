@@ -36,8 +36,88 @@
 #include <QTextCursor>
 #include <QTextBlock>
 #include <QScrollBar>
+#include <QTimer>
+
+#include <algorithm>
 
 namespace {
+
+std::string build_repo_status_signature(const std::vector<bendiff::core::ChangedFile>& files)
+{
+    std::vector<std::string> parts;
+    parts.reserve(files.size());
+
+    for (const auto& f : files) {
+        std::string s;
+        s.reserve(f.repoRelativePath.size() + 16);
+        s += std::to_string(static_cast<int>(f.kind));
+        s += '|';
+        s += f.repoRelativePath;
+        s += '|';
+        if (f.renameFrom.has_value()) {
+            s += *f.renameFrom;
+        }
+        parts.push_back(std::move(s));
+    }
+
+    std::sort(parts.begin(), parts.end());
+
+    std::string out;
+    for (const auto& p : parts) {
+        out += p;
+        out += '\n';
+    }
+    return out;
+}
+
+// Refreshes the repo file list UI from an already-fetched list of ChangedFile.
+// Returns true if the list was updated successfully.
+bool refresh_repo_file_list_widget(QListWidget* list,
+                                  const std::vector<bendiff::core::ChangedFile>& files)
+{
+    if (!list) {
+        return false;
+    }
+
+    list->blockSignals(true);
+    list->clear();
+
+    const auto rows = bendiff::core::BuildGroupedFileListRows(files);
+    for (const auto& row : rows) {
+        auto* item = new QListWidgetItem(QString::fromStdString(row.displayText));
+
+        if (row.kind == bendiff::core::FileListRowKind::Header) {
+            QFont f = item->font();
+            f.setBold(true);
+            item->setFont(f);
+            item->setForeground(QBrush(QColor(120, 120, 120)));
+            item->setBackground(QBrush(QColor(245, 245, 245)));
+
+            item->setFlags(item->flags() & ~Qt::ItemIsSelectable);
+            item->setData(Qt::UserRole, QString());
+            item->setData(Qt::UserRole + 1, static_cast<int>(bendiff::core::ChangeKind::Unknown));
+            item->setData(Qt::UserRole + 2, QString());
+        } else {
+            if (row.file.has_value()) {
+                const auto& f = *row.file;
+                item->setData(Qt::UserRole, QString::fromStdString(f.repoRelativePath));
+                item->setData(Qt::UserRole + 1, static_cast<int>(f.kind));
+                item->setData(Qt::UserRole + 2, f.renameFrom.has_value() ? QString::fromStdString(*f.renameFrom) : QString());
+
+                if (f.kind == bendiff::core::ChangeKind::Renamed && f.renameFrom.has_value()) {
+                    item->setText(QString("%1 (renamed from %2)")
+                                      .arg(QString::fromStdString(f.repoRelativePath))
+                                      .arg(QString::fromStdString(*f.renameFrom)));
+                }
+            }
+        }
+
+        list->addItem(item);
+    }
+
+    list->blockSignals(false);
+    return true;
+}
 
 int first_visual_row_for_hunk(const bendiff::core::render::RenderDocument& doc,
                               const bendiff::core::navigation::ChangeLocation& loc)
@@ -277,6 +357,13 @@ MainWindow::MainWindow(const bendiff::Invocation& invocation, QWidget* parent)
     refresh_file_list();
     reset_placeholders();
     update_status_bar();
+
+    m_repoRefreshTimer = new QTimer(this);
+    m_repoRefreshTimer->setInterval(1500);
+    connect(m_repoRefreshTimer, &QTimer::timeout, this, [this] {
+        repo_auto_refresh_tick(/*force=*/false);
+    });
+    update_repo_auto_refresh_timer();
 }
 
 void MainWindow::setup_menus()
@@ -388,9 +475,8 @@ void MainWindow::setup_toolbar()
             return;
         }
 
-        // Repo mode refresh is automatic in a later milestone.
-        bendiff::logging::info("Refresh requested in repo mode (no-op in v1 milestones before M7)");
-        statusBar()->showMessage("Repo refresh is automatic (manual refresh not implemented yet)");
+        // Repo mode refresh is automatic; allow manual force-refresh as well.
+        repo_auto_refresh_tick(/*force=*/true);
     });
     connect(m_actionNextChange, &QAction::triggered, this, [this] {
         if (!m_currentRenderDoc.has_value() || m_currentChanges.empty()) {
@@ -846,6 +932,7 @@ void MainWindow::enter_repo_mode(const std::filesystem::path& repoPath)
     refresh_file_list();
     reset_placeholders();
     update_status_bar();
+    update_repo_auto_refresh_timer();
 }
 
 void MainWindow::enter_folder_diff_mode(const std::filesystem::path& leftPath, const std::filesystem::path& rightPath)
@@ -860,9 +947,12 @@ void MainWindow::enter_folder_diff_mode(const std::filesystem::path& leftPath, c
                            "\" rightPath=\"" + rightPath.string() + "\"");
 
     m_repoRoot.reset();
+    m_lastRepoStatusSignature.clear();
+    m_repoAutoRefreshSuppressed = false;
     refresh_file_list();
     reset_placeholders();
     update_status_bar();
+    update_repo_auto_refresh_timer();
 }
 
 void MainWindow::refresh_file_list()
@@ -878,6 +968,7 @@ void MainWindow::refresh_file_list()
         // If not a git repo, no files are listed.
         if (!m_repoRoot.has_value()) {
             m_fileListWidget->blockSignals(false);
+            m_lastRepoStatusSignature.clear();
             return;
         }
 
@@ -906,43 +997,10 @@ void MainWindow::refresh_file_list()
             return;
         }
 
-        const auto rows = bendiff::core::BuildGroupedFileListRows(r.status.files);
-
-        for (const auto& row : rows) {
-            auto* item = new QListWidgetItem(QString::fromStdString(row.displayText));
-
-            if (row.kind == bendiff::core::FileListRowKind::Header) {
-                QFont f = item->font();
-                f.setBold(true);
-                item->setFont(f);
-                item->setForeground(QBrush(QColor(120, 120, 120)));
-                item->setBackground(QBrush(QColor(245, 245, 245)));
-
-                // Non-selectable header.
-                item->setFlags(item->flags() & ~Qt::ItemIsSelectable);
-                item->setData(Qt::UserRole, QString());
-                item->setData(Qt::UserRole + 1, static_cast<int>(bendiff::core::ChangeKind::Unknown));
-                item->setData(Qt::UserRole + 2, QString());
-            } else {
-                // File row: store metadata for selection handling.
-                if (row.file.has_value()) {
-                    const auto& f = *row.file;
-                    item->setData(Qt::UserRole, QString::fromStdString(f.repoRelativePath));
-                    item->setData(Qt::UserRole + 1, static_cast<int>(f.kind));
-                    item->setData(Qt::UserRole + 2, f.renameFrom.has_value() ? QString::fromStdString(*f.renameFrom) : QString());
-
-                    // Annotate renames in the UI list itself.
-                    if (f.kind == bendiff::core::ChangeKind::Renamed && f.renameFrom.has_value()) {
-                        item->setText(QString("%1 (renamed from %2)")
-                                          .arg(QString::fromStdString(f.repoRelativePath))
-                                          .arg(QString::fromStdString(*f.renameFrom)));
-                    }
-                }
-            }
-
-            m_fileListWidget->addItem(item);
-        }
+        (void)refresh_repo_file_list_widget(m_fileListWidget, r.status.files);
+        m_lastRepoStatusSignature = build_repo_status_signature(r.status.files);
     } else if (m_invocation.mode == bendiff::AppMode::FolderDiffMode) {
+        m_lastRepoStatusSignature.clear();
         if (!validate_dir_path(m_invocation.leftPath) || !validate_dir_path(m_invocation.rightPath)) {
             QMessageBox::critical(
                 this,
@@ -1016,6 +1074,148 @@ void MainWindow::refresh_repo_discovery()
     } else {
         bendiff::logging::info("No git repo found for repo mode start path");
     }
+}
+
+void MainWindow::update_repo_auto_refresh_timer()
+{
+    if (!m_repoRefreshTimer) {
+        return;
+    }
+
+    if (m_invocation.mode != bendiff::AppMode::RepoMode) {
+        m_repoRefreshTimer->stop();
+        return;
+    }
+
+    if (m_repoAutoRefreshSuppressed) {
+        m_repoRefreshTimer->stop();
+        return;
+    }
+
+    if (m_repoRoot.has_value()) {
+        if (!m_repoRefreshTimer->isActive()) {
+            m_repoRefreshTimer->start();
+        }
+    } else {
+        m_repoRefreshTimer->stop();
+    }
+}
+
+void MainWindow::repo_auto_refresh_tick(bool force)
+{
+    if (m_repoRefreshInProgress) {
+        return;
+    }
+    if (m_invocation.mode != bendiff::AppMode::RepoMode) {
+        return;
+    }
+    if (m_repoAutoRefreshSuppressed) {
+        return;
+    }
+
+    m_repoRefreshInProgress = true;
+
+    // Repo root may change if user opened via cwd and moved around.
+    refresh_repo_discovery();
+    update_repo_auto_refresh_timer();
+
+    if (!m_repoRoot.has_value()) {
+        // Spec: if not a git repo, list is empty.
+        if (m_fileListWidget) {
+            m_fileListWidget->blockSignals(true);
+            m_fileListWidget->clear();
+            m_fileListWidget->blockSignals(false);
+        }
+        m_lastRepoStatusSignature.clear();
+        reset_placeholders();
+        update_status_bar();
+        m_repoRefreshInProgress = false;
+        return;
+    }
+
+    // Preserve selection so we can re-select it after refreshing the model.
+    QString selectedPath;
+    int selectedKindInt = static_cast<int>(bendiff::core::ChangeKind::Unknown);
+    QString selectedRenameFrom;
+    if (m_fileListWidget) {
+        if (auto* cur = m_fileListWidget->currentItem()) {
+            if ((cur->flags() & Qt::ItemIsSelectable) != 0) {
+                selectedPath = cur->data(Qt::UserRole).toString();
+                selectedKindInt = cur->data(Qt::UserRole + 1).toInt();
+                selectedRenameFrom = cur->data(Qt::UserRole + 2).toString();
+            }
+        }
+    }
+
+    const auto r = bendiff::core::GetRepoStatusWithDiagnostics(*m_repoRoot);
+    if (r.process.exitCode != 0) {
+        const bool cannotExec = (r.process.exitCode == 127);
+
+        const QString title = cannotExec ? "Git could not be executed" : "Git status failed";
+        QString message;
+        if (cannotExec) {
+            message = "BenDiff could not execute the Git executable.\n\n"
+                      "Make sure `git` is installed and available on PATH.";
+        } else {
+            message = QString("Git returned a non-zero exit code (%1) while reading repository status.")
+                          .arg(r.process.exitCode);
+        }
+        if (!r.process.stderrText.empty()) {
+            message += QString("\n\nDetails:\n%1").arg(QString::fromStdString(r.process.stderrText));
+        }
+
+        QMessageBox::critical(this, title, message);
+
+        // Avoid spamming modal dialogs every interval.
+        m_repoAutoRefreshSuppressed = true;
+        update_repo_auto_refresh_timer();
+        m_repoRefreshInProgress = false;
+        return;
+    }
+
+    const std::string sig = build_repo_status_signature(r.status.files);
+    if (!force && !m_lastRepoStatusSignature.empty() && sig == m_lastRepoStatusSignature) {
+        m_repoRefreshInProgress = false;
+        return;
+    }
+
+    m_lastRepoStatusSignature = sig;
+
+    (void)refresh_repo_file_list_widget(m_fileListWidget, r.status.files);
+
+    // Re-select previous item if it still exists; this refreshes the diff view.
+    if (m_fileListWidget && !selectedPath.isEmpty()) {
+        QListWidgetItem* best = nullptr;
+        for (int i = 0; i < m_fileListWidget->count(); ++i) {
+            auto* item = m_fileListWidget->item(i);
+            if (!item || (item->flags() & Qt::ItemIsSelectable) == 0) {
+                continue;
+            }
+            if (item->data(Qt::UserRole).toString() == selectedPath) {
+                // Prefer exact metadata match if we can.
+                if (item->data(Qt::UserRole + 1).toInt() == selectedKindInt &&
+                    item->data(Qt::UserRole + 2).toString() == selectedRenameFrom) {
+                    best = item;
+                    break;
+                }
+                if (!best) {
+                    best = item;
+                }
+            }
+        }
+
+        if (best) {
+            m_fileListWidget->setCurrentItem(best);
+        } else {
+            // If the selected file disappeared, clear the diff panes.
+            reset_placeholders();
+        }
+    } else {
+        reset_placeholders();
+    }
+
+    update_status_bar();
+    m_repoRefreshInProgress = false;
 }
 
 void MainWindow::reset_placeholders()

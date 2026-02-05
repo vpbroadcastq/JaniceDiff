@@ -15,6 +15,7 @@ class QAction;
 class QComboBox;
 class QListWidget;
 class QSplitter;
+class QTimer;
 class QWidget;
 
 class DiffTextView;
@@ -42,6 +43,9 @@ private:
     void reset_placeholders();
 
     void refresh_repo_discovery();
+
+    void update_repo_auto_refresh_timer();
+    void repo_auto_refresh_tick(bool force);
 
     void set_pane_mode(PaneMode mode);
     void update_status_bar();
@@ -73,6 +77,11 @@ private:
     DiffTextView* m_diffTextB = nullptr;
 
     bool m_syncingDiffScroll = false;
+
+    QTimer* m_repoRefreshTimer = nullptr;
+    bool m_repoRefreshInProgress = false;
+    bool m_repoAutoRefreshSuppressed = false;
+    std::string m_lastRepoStatusSignature;
 
     // M7: cached navigation state for the currently selected item.
     std::optional<bendiff::core::diff::DiffResult> m_currentDiff;
