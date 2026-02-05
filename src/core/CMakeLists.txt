@@ -1,6 +1,8 @@
 add_library(bendiff_core STATIC
   content_sources.cpp
   content_sources.h
+  navigation/change_navigation.cpp
+  navigation/change_navigation.h
   diff/diff.cpp
   diff/diff.h
   diff/alignment.cpp

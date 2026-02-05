@@ -23,6 +23,7 @@ add_executable(bendiff_tests
   test_loaded_text_file.cpp
   test_render_model.cpp
   test_diff_render_model.cpp
+  test_change_navigation.cpp
   test_diff_api.cpp
   test_diff_whitespace.cpp
   test_diff_myers.cpp
