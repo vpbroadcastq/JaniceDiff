@@ -927,6 +927,12 @@ void MainWindow::enter_repo_mode(const std::filesystem::path& repoPath)
     m_invocation.rightPath.clear();
     m_invocation.error.clear();
 
+    // Re-enabling repo mode should resume auto-refresh even if it was previously
+    // suppressed due to a git error.
+    m_repoAutoRefreshSuppressed = false;
+    m_repoRefreshInProgress = false;
+    m_lastRepoStatusSignature.clear();
+
     bendiff::logging::info(std::string("UI mode set: RepoMode repoPath=\"") + repoPath.string() + "\"");
     refresh_repo_discovery();
     refresh_file_list();
@@ -949,6 +955,12 @@ void MainWindow::enter_folder_diff_mode(const std::filesystem::path& leftPath, c
     m_repoRoot.reset();
     m_lastRepoStatusSignature.clear();
     m_repoAutoRefreshSuppressed = false;
+
+    // Spec: folder mode refresh is manual only (no background polling).
+    if (m_repoRefreshTimer) {
+        m_repoRefreshTimer->stop();
+    }
+    m_repoRefreshInProgress = false;
     refresh_file_list();
     reset_placeholders();
     update_status_bar();

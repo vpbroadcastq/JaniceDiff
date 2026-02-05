@@ -55,7 +55,7 @@
 ## M7-T4: Automatic refresh behavior in repo mode
 **Objective:** Implement spec’s "Refresh is automatic when a git repo is open."
 ## Deliverables
-1) Define what “automatic” means in v1:
+1) Define what "automatic" means in v1:
     * Recommended: poll for working tree changes on a timer, and refresh file list + selected diff if changes detected.
 2) Implement a `QTimer` (e.g., 1–2 seconds) that triggers:
     * `git status --porcelain=v1 refresh`
