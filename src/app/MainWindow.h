@@ -2,9 +2,14 @@
 
 #include <QMainWindow>
 
+#include <diff/diff.h>
+#include <navigation/change_navigation.h>
+#include <render/diff_render_model.h>
+
 #include <invocation.h>
 
 #include <optional>
+#include <vector>
 
 class QAction;
 class QComboBox;
@@ -68,4 +73,10 @@ private:
     DiffTextView* m_diffTextB = nullptr;
 
     bool m_syncingDiffScroll = false;
+
+    // M7: cached navigation state for the currently selected item.
+    std::optional<bendiff::core::diff::DiffResult> m_currentDiff;
+    std::optional<bendiff::core::render::RenderDocument> m_currentRenderDoc;
+    std::vector<bendiff::core::navigation::ChangeLocation> m_currentChanges;
+    std::optional<std::size_t> m_currentChangeIndex;
 };

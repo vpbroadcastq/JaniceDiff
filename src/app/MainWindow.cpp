@@ -8,6 +8,7 @@
 #include <loaded_text_file.h>
 #include <render_model.h>
 #include <render/diff_render_model.h>
+#include <navigation/change_navigation.h>
 #include <model.h>
 #include <repo_discovery.h>
 #include <repo_status.h>
@@ -32,9 +33,63 @@
 #include <QWidget>
 #include <QFontDatabase>
 #include <QTextCursor>
+#include <QTextBlock>
 #include <QScrollBar>
 
 namespace {
+
+int first_visual_row_for_hunk(const bendiff::core::render::RenderDocument& doc,
+                              const bendiff::core::navigation::ChangeLocation& loc)
+{
+    const auto leftBegin = loc.leftStart;
+    const auto leftEnd = loc.leftStart + loc.leftCount;
+    const auto rightBegin = loc.rightStart;
+    const auto rightEnd = loc.rightStart + loc.rightCount;
+
+    int visualRow = 0;
+    for (const auto& block : doc.blocks) {
+        for (const auto& line : block.lines) {
+            if (line.op != bendiff::core::diff::LineOp::Equal) {
+                bool matches = false;
+                if (loc.leftCount > 0 && line.leftLine.has_value()) {
+                    const std::size_t idx = *line.leftLine - 1;
+                    matches = matches || (idx >= leftBegin && idx < leftEnd);
+                }
+                if (loc.rightCount > 0 && line.rightLine.has_value()) {
+                    const std::size_t idx = *line.rightLine - 1;
+                    matches = matches || (idx >= rightBegin && idx < rightEnd);
+                }
+                // Pure insert hunks have leftCount == 0; pure delete hunks have rightCount == 0.
+                // Replacements have both; any row belonging to either side is a good scroll target.
+                if (matches) {
+                    return visualRow;
+                }
+            }
+            ++visualRow;
+        }
+    }
+
+    return 0;
+}
+
+void scroll_to_visual_row(DiffTextView* view, int visualRow)
+{
+    if (!view) {
+        return;
+    }
+    if (visualRow < 0) {
+        visualRow = 0;
+    }
+
+    const QTextBlock block = view->document()->findBlockByNumber(visualRow);
+    if (!block.isValid()) {
+        return;
+    }
+
+    QTextCursor c(block);
+    view->setTextCursor(c);
+    view->centerCursor();
+}
 
 QWidget* make_text_panel(const QString& title, DiffTextView** outText, QWidget* parent)
 {
@@ -66,7 +121,7 @@ QWidget* make_text_panel(const QString& title, DiffTextView** outText, QWidget* 
     return frame;
 }
 
-void log_not_implemented(const char* what)
+[[maybe_unused]] void log_not_implemented(const char* what)
 {
     bendiff::logging::info(std::string("Not implemented: ") + what);
 }
@@ -336,8 +391,54 @@ void MainWindow::setup_toolbar()
         bendiff::logging::info("Refresh requested in repo mode (no-op in v1 milestones before M7)");
         statusBar()->showMessage("Repo refresh is automatic (manual refresh not implemented yet)");
     });
-    connect(m_actionNextChange, &QAction::triggered, this, [] { log_not_implemented("Next Change"); });
-    connect(m_actionPrevChange, &QAction::triggered, this, [] { log_not_implemented("Previous Change"); });
+    connect(m_actionNextChange, &QAction::triggered, this, [this] {
+        if (!m_currentRenderDoc.has_value() || m_currentChanges.empty()) {
+            statusBar()->showMessage("No changes");
+            return;
+        }
+
+        const auto next = bendiff::core::navigation::NextChangeIndex(m_currentChangeIndex, m_currentChanges);
+        if (next.has_value()) {
+            m_currentChangeIndex = *next;
+        } else {
+            // Wrap so repeated Next cycles through hunks.
+            m_currentChangeIndex = 0;
+        }
+
+        const auto& loc = m_currentChanges[*m_currentChangeIndex];
+        const int row = first_visual_row_for_hunk(*m_currentRenderDoc, loc);
+
+        if (m_paneMode == PaneMode::Inline) {
+            scroll_to_visual_row(m_diffTextA, row);
+        } else {
+            scroll_to_visual_row(m_diffTextA, row);
+            scroll_to_visual_row(m_diffTextB, row);
+        }
+    });
+    connect(m_actionPrevChange, &QAction::triggered, this, [this] {
+        if (!m_currentRenderDoc.has_value() || m_currentChanges.empty()) {
+            statusBar()->showMessage("No changes");
+            return;
+        }
+
+        const auto prev = bendiff::core::navigation::PrevChangeIndex(m_currentChangeIndex, m_currentChanges);
+        if (prev.has_value()) {
+            m_currentChangeIndex = *prev;
+        } else {
+            // Wrap so repeated Prev cycles through hunks.
+            m_currentChangeIndex = m_currentChanges.size() - 1;
+        }
+
+        const auto& loc = m_currentChanges[*m_currentChangeIndex];
+        const int row = first_visual_row_for_hunk(*m_currentRenderDoc, loc);
+
+        if (m_paneMode == PaneMode::Inline) {
+            scroll_to_visual_row(m_diffTextA, row);
+        } else {
+            scroll_to_visual_row(m_diffTextA, row);
+            scroll_to_visual_row(m_diffTextB, row);
+        }
+    });
 
     connect(m_whitespaceCombo, &QComboBox::currentTextChanged, this, [this](const QString& text) {
         bendiff::logging::info(std::string("Whitespace mode set to: ") + text.toStdString());
@@ -526,6 +627,10 @@ void MainWindow::setup_central()
                                                    .arg(render_loaded_text(leftLoaded, " "))
                                                    .arg(render_loaded_text(rightLoaded, " ")));
                             set_text(m_diffTextB, QString());
+                            m_currentDiff.reset();
+                            m_currentRenderDoc.reset();
+                            m_currentChanges.clear();
+                            m_currentChangeIndex.reset();
                             return;
                         }
 
@@ -535,10 +640,19 @@ void MainWindow::setup_central()
 
                         set_render_doc_inline(m_diffTextA, doc);
                         set_text(m_diffTextB, QString());
+
+                        m_currentDiff = d;
+                        m_currentRenderDoc = doc;
+                        m_currentChanges = bendiff::core::navigation::EnumerateChangeHunks(d);
+                        m_currentChangeIndex.reset();
                     } else {
                         if (unsupported) {
                             set_text(m_diffTextA, QString("Unsupported (left)\n\n%1\n\n%2").arg(detail).arg(render_loaded_text(leftLoaded, " ")));
                             set_text(m_diffTextB, QString("Unsupported (right)\n\n%1\n\n%2").arg(detail).arg(render_loaded_text(rightLoaded, " ")));
+                            m_currentDiff.reset();
+                            m_currentRenderDoc.reset();
+                            m_currentChanges.clear();
+                            m_currentChangeIndex.reset();
                             return;
                         }
 
@@ -548,6 +662,11 @@ void MainWindow::setup_central()
 
                         set_render_doc_sbs_left(m_diffTextA, doc);
                         set_render_doc_sbs_right(m_diffTextB, doc);
+
+                        m_currentDiff = d;
+                        m_currentRenderDoc = doc;
+                        m_currentChanges = bendiff::core::navigation::EnumerateChangeHunks(d);
+                        m_currentChangeIndex.reset();
                     }
                 }
             } else if (m_invocation.mode == bendiff::AppMode::FolderDiffMode) {
@@ -593,6 +712,10 @@ void MainWindow::setup_central()
                                                    .arg(render_loaded_text(leftLoaded, " "))
                                                    .arg(render_loaded_text(rightLoaded, " ")));
                             set_text(m_diffTextB, QString());
+                            m_currentDiff.reset();
+                            m_currentRenderDoc.reset();
+                            m_currentChanges.clear();
+                            m_currentChangeIndex.reset();
                             return;
                         }
 
@@ -601,10 +724,19 @@ void MainWindow::setup_central()
                         const auto doc = bendiff::core::render::BuildInlineRender(leftLoaded, rightLoaded, d);
                         set_render_doc_inline(m_diffTextA, doc);
                         set_text(m_diffTextB, QString());
+
+                        m_currentDiff = d;
+                        m_currentRenderDoc = doc;
+                        m_currentChanges = bendiff::core::navigation::EnumerateChangeHunks(d);
+                        m_currentChangeIndex.reset();
                     } else {
                         if (unsupported) {
                             set_text(m_diffTextA, QString("Unsupported (left)\n\n%1\n\n%2").arg(detail).arg(render_loaded_text(leftLoaded, " ")));
                             set_text(m_diffTextB, QString("Unsupported (right)\n\n%1\n\n%2").arg(detail).arg(render_loaded_text(rightLoaded, " ")));
+                            m_currentDiff.reset();
+                            m_currentRenderDoc.reset();
+                            m_currentChanges.clear();
+                            m_currentChangeIndex.reset();
                             return;
                         }
 
@@ -613,6 +745,11 @@ void MainWindow::setup_central()
                         const auto doc = bendiff::core::render::BuildSideBySideRender(leftLoaded, rightLoaded, d);
                         set_render_doc_sbs_left(m_diffTextA, doc);
                         set_render_doc_sbs_right(m_diffTextB, doc);
+
+                        m_currentDiff = d;
+                        m_currentRenderDoc = doc;
+                        m_currentChanges = bendiff::core::navigation::EnumerateChangeHunks(d);
+                        m_currentChangeIndex.reset();
                     }
                 }
             } else {
@@ -869,6 +1006,11 @@ void MainWindow::reset_placeholders()
             set_text(m_diffTextB, "Right view (select a file)");
         }
     }
+
+    m_currentDiff.reset();
+    m_currentRenderDoc.reset();
+    m_currentChanges.clear();
+    m_currentChangeIndex.reset();
 }
 
 void MainWindow::set_pane_mode(PaneMode mode)
