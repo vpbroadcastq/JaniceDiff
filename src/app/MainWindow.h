@@ -79,4 +79,6 @@ private:
     std::optional<bendiff::core::render::RenderDocument> m_currentRenderDoc;
     std::vector<bendiff::core::navigation::ChangeLocation> m_currentChanges;
     std::optional<std::size_t> m_currentChangeIndex;
+
+    bool m_currentSelectionUnsupported = false;
 };

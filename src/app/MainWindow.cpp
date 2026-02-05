@@ -9,6 +9,7 @@
 #include <render_model.h>
 #include <render/diff_render_model.h>
 #include <navigation/change_navigation.h>
+#include <diff/diff_stats.h>
 #include <model.h>
 #include <repo_discovery.h>
 #include <repo_status.h>
@@ -393,7 +394,7 @@ void MainWindow::setup_toolbar()
     });
     connect(m_actionNextChange, &QAction::triggered, this, [this] {
         if (!m_currentRenderDoc.has_value() || m_currentChanges.empty()) {
-            statusBar()->showMessage("No changes");
+            update_status_bar();
             return;
         }
 
@@ -414,10 +415,12 @@ void MainWindow::setup_toolbar()
             scroll_to_visual_row(m_diffTextA, row);
             scroll_to_visual_row(m_diffTextB, row);
         }
+
+        update_status_bar();
     });
     connect(m_actionPrevChange, &QAction::triggered, this, [this] {
         if (!m_currentRenderDoc.has_value() || m_currentChanges.empty()) {
-            statusBar()->showMessage("No changes");
+            update_status_bar();
             return;
         }
 
@@ -438,6 +441,8 @@ void MainWindow::setup_toolbar()
             scroll_to_visual_row(m_diffTextA, row);
             scroll_to_visual_row(m_diffTextB, row);
         }
+
+        update_status_bar();
     });
 
     connect(m_whitespaceCombo, &QComboBox::currentTextChanged, this, [this](const QString& text) {
@@ -553,14 +558,20 @@ void MainWindow::setup_central()
     // Selection wiring (M1-T6/M2-T7): selecting a file updates diff placeholder labels.
     if (m_fileListWidget) {
         connect(m_fileListWidget, &QListWidget::currentItemChanged, this, [this](QListWidgetItem* current, QListWidgetItem*) {
+            const auto updateStatus = [this] {
+                update_status_bar();
+            };
+
             if (current == nullptr) {
                 reset_placeholders();
+                updateStatus();
                 return;
             }
 
             // Header rows are non-selectable, but be defensive.
             if ((current->flags() & Qt::ItemIsSelectable) == 0) {
                 reset_placeholders();
+                updateStatus();
                 return;
             }
 
@@ -571,6 +582,7 @@ void MainWindow::setup_central()
 
                 if (path.isEmpty()) {
                     reset_placeholders();
+                    updateStatus();
                     return;
                 }
 
@@ -631,6 +643,8 @@ void MainWindow::setup_central()
                             m_currentRenderDoc.reset();
                             m_currentChanges.clear();
                             m_currentChangeIndex.reset();
+                            m_currentSelectionUnsupported = true;
+                            updateStatus();
                             return;
                         }
 
@@ -645,6 +659,8 @@ void MainWindow::setup_central()
                         m_currentRenderDoc = doc;
                         m_currentChanges = bendiff::core::navigation::EnumerateChangeHunks(d);
                         m_currentChangeIndex.reset();
+                        m_currentSelectionUnsupported = false;
+                        updateStatus();
                     } else {
                         if (unsupported) {
                             set_text(m_diffTextA, QString("Unsupported (left)\n\n%1\n\n%2").arg(detail).arg(render_loaded_text(leftLoaded, " ")));
@@ -653,6 +669,8 @@ void MainWindow::setup_central()
                             m_currentRenderDoc.reset();
                             m_currentChanges.clear();
                             m_currentChangeIndex.reset();
+                            m_currentSelectionUnsupported = true;
+                            updateStatus();
                             return;
                         }
 
@@ -667,6 +685,8 @@ void MainWindow::setup_central()
                         m_currentRenderDoc = doc;
                         m_currentChanges = bendiff::core::navigation::EnumerateChangeHunks(d);
                         m_currentChangeIndex.reset();
+                        m_currentSelectionUnsupported = false;
+                        updateStatus();
                     }
                 }
             } else if (m_invocation.mode == bendiff::AppMode::FolderDiffMode) {
@@ -677,6 +697,7 @@ void MainWindow::setup_central()
 
                 if (rel.isEmpty()) {
                     reset_placeholders();
+                    updateStatus();
                     return;
                 }
 
@@ -716,6 +737,8 @@ void MainWindow::setup_central()
                             m_currentRenderDoc.reset();
                             m_currentChanges.clear();
                             m_currentChangeIndex.reset();
+                            m_currentSelectionUnsupported = true;
+                            updateStatus();
                             return;
                         }
 
@@ -729,6 +752,8 @@ void MainWindow::setup_central()
                         m_currentRenderDoc = doc;
                         m_currentChanges = bendiff::core::navigation::EnumerateChangeHunks(d);
                         m_currentChangeIndex.reset();
+                        m_currentSelectionUnsupported = false;
+                        updateStatus();
                     } else {
                         if (unsupported) {
                             set_text(m_diffTextA, QString("Unsupported (left)\n\n%1\n\n%2").arg(detail).arg(render_loaded_text(leftLoaded, " ")));
@@ -737,6 +762,8 @@ void MainWindow::setup_central()
                             m_currentRenderDoc.reset();
                             m_currentChanges.clear();
                             m_currentChangeIndex.reset();
+                            m_currentSelectionUnsupported = true;
+                            updateStatus();
                             return;
                         }
 
@@ -750,10 +777,13 @@ void MainWindow::setup_central()
                         m_currentRenderDoc = doc;
                         m_currentChanges = bendiff::core::navigation::EnumerateChangeHunks(d);
                         m_currentChangeIndex.reset();
+                        m_currentSelectionUnsupported = false;
+                        updateStatus();
                     }
                 }
             } else {
                 reset_placeholders();
+                updateStatus();
             }
         });
 
@@ -1011,6 +1041,7 @@ void MainWindow::reset_placeholders()
     m_currentRenderDoc.reset();
     m_currentChanges.clear();
     m_currentChangeIndex.reset();
+    m_currentSelectionUnsupported = false;
 }
 
 void MainWindow::set_pane_mode(PaneMode mode)
@@ -1057,10 +1088,10 @@ void MainWindow::update_status_bar()
 {
     const char* paneText = (m_paneMode == PaneMode::Inline) ? "Inline" : "Side-by-side";
 
-    QString modeText = "File";
+    QString modeText;
     QString paths;
     if (m_invocation.mode == bendiff::AppMode::RepoMode) {
-        modeText = "File";
+        modeText = "Repo";
         if (m_repoRoot.has_value()) {
             paths = QString("Repo root: %1").arg(QString::fromStdString(m_repoRoot->string()));
         } else {
@@ -1073,6 +1104,8 @@ void MainWindow::update_status_bar()
                         .arg(QString::fromStdString(m_invocation.leftPath.string()))
                         .arg(QString::fromStdString(m_invocation.rightPath.string()));
         }
+    } else {
+        modeText = "Unknown";
     }
 
     QString message = QString("Mode: %1 | View: %2").arg(modeText).arg(paneText);
@@ -1080,5 +1113,45 @@ void MainWindow::update_status_bar()
         message += " | ";
         message += paths;
     }
+
+    // Selected file/entry label.
+    if (m_fileListWidget) {
+        auto* item = m_fileListWidget->currentItem();
+        if (item && (item->flags() & Qt::ItemIsSelectable) != 0) {
+            if (m_invocation.mode == bendiff::AppMode::RepoMode) {
+                const QString path = item->data(Qt::UserRole).toString();
+                if (!path.isEmpty()) {
+                    message += QString(" | File: %1").arg(path);
+                }
+            } else if (m_invocation.mode == bendiff::AppMode::FolderDiffMode) {
+                const QString rel = item->data(Qt::UserRole).toString();
+                if (!rel.isEmpty()) {
+                    message += QString(" | File: %1").arg(rel);
+                }
+            }
+        }
+    }
+
+    // Diff stats (when relevant).
+    if (m_currentSelectionUnsupported) {
+        message += " | Binary/unsupported";
+    } else if (m_currentDiff.has_value()) {
+        const auto stats = bendiff::core::diff::ComputeDiffStats(*m_currentDiff);
+        if (stats.hunkCount == 0) {
+            message += " | 0 changes";
+        } else {
+            message += QString(" | Hunks: %1, +%2, -%3")
+                           .arg(static_cast<qulonglong>(stats.hunkCount))
+                           .arg(static_cast<qulonglong>(stats.addedLineCount))
+                           .arg(static_cast<qulonglong>(stats.deletedLineCount));
+        }
+    }
+
+    if (m_currentChangeIndex.has_value() && !m_currentChanges.empty()) {
+        message += QString(" | Hunk %1/%2")
+                       .arg(static_cast<qulonglong>(*m_currentChangeIndex + 1))
+                       .arg(static_cast<qulonglong>(m_currentChanges.size()));
+    }
+
     statusBar()->showMessage(message);
 }

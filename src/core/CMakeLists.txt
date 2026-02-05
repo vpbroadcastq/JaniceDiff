@@ -5,6 +5,8 @@ add_library(bendiff_core STATIC
   navigation/change_navigation.h
   diff/diff.cpp
   diff/diff.h
+  diff/diff_stats.cpp
+  diff/diff_stats.h
   diff/alignment.cpp
   diff/alignment.h
   diff/whitespace.cpp

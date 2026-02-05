@@ -39,10 +39,10 @@
     * Status bar shows:
         * Mode: Repo / Folder
         * Paths (repo root or folder roots)
-        * Diff stats: e.g., “Hunks: N, +A, -D” (added/deleted line counts)
-        * Current hunk position when navigating: “Hunk i/N”
+        * Diff stats: e.g., "Hunks: N, +A, -D" (added/deleted line counts)
+        * Current hunk position when navigating: "Hunk i/N"
         * For binary/unsupported:
-            * Show “Binary/unsupported” instead of line stats
+            * Show "Binary/unsupported" instead of line stats
         * For deleted files:
             * Counts reflect deletions appropriately
 ### Constraints
@@ -50,7 +50,7 @@
 2) Stats should be computed from existing diff/render model, not recomputed expensively
 ### Acceptance criteria
 1) Manual tests on simple diffs show accurate numbers.
-2) Navigating updates “Hunk i/N”.
+2) Navigating updates "Hunk i/N".
 
 ## M7-T4: Automatic refresh behavior in repo mode
 **Objective:** Implement spec’s "Refresh is automatic when a git repo is open."
